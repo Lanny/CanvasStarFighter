@@ -1,0 +1,56 @@
+<html>
+  <head>
+    <title>Space Game</title>
+    <script src="main.js"></script>
+    <style>
+      body {
+        padding : 0px;
+        border : 0px;
+        margin : 0px;
+      }
+      canvas {
+        position: absolute;
+      }
+      table {
+        margin : auto;
+        color : #707070;
+      }
+      #optionsDiv {
+        position : absolute;
+        left : 50%;
+        top : 50%;
+        margin-left : -300px;
+        margin-top : -150px;
+        width : 600px;
+        height : 300px;
+        background-color : #000;
+        border-style : solid;
+        border-color : #FFF;
+        border-width : 1px;
+        border-radius : 20px;
+      }
+    </style>
+  </head>
+  <body onload="start()">
+    <canvas id="primary_canvas" width="400" height="400"></canvas>
+    <div id="optionsDiv">
+      <table>
+        <tr>
+          <td>Number of Astroids</td>
+          <td><input type="text" id="astroid_count" value="3"></td>
+        </tr>
+        <tr>
+          <td>Number of Enemy Fighters</td>
+          <td><input type="text" id="fighter_count" value="1"></td>
+        </tr>
+        <tr>
+          <td>Developer mode?</td>
+          <td><input type="checkbox" id="dev_mode" checked="checked"></td>
+        </tr>
+        <tr>
+          <td><button id="start_button">Start</button></td>
+        </tr>
+      </table>
+    </div>
+  </body>
+</html>
