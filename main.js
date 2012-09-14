@@ -1,6 +1,9 @@
 GLOBAL_AIR_FRICTION = 0.2 // Coeddicient of friction, factor of reduction of speed per second
 ACCELERATION_FORCE = 100 // Pixles per second accelerated per second
 PLAYER_TURN_SPEED = 3 // Radians turned per second, basically pi but hoping to avoid float arithmatic
+NUMBER_OF_STARS = 5000 // Number of stars to simultaniously track
+X_BOUNDRY = 5000
+Y_BOUNDRY = 5000
 DEV_MODE = true // Set true for additional debugging and performance stats
 
 /* A Quick Note Regarding Colission Detection :
@@ -25,7 +28,16 @@ function LinearMover() {
   this.colType = 'env'
 
   this.additionalUpdate = function() {}
-  this.draw = function() {}
+  this.draw = function() {
+    ctx.save()
+    ctx.translate(canvas.width/2, canvas.height/2)
+    ctx.translate(this.xPos - player.xPos, this.yPos - player.yPos)
+    ctx.rotate(this.rotation)
+
+    this.geometryDraw()
+
+    ctx.restore()
+  }
 
   this.update = function() {
     this.additionalUpdate()
@@ -34,12 +46,6 @@ function LinearMover() {
     this.yPos += (this.ySpeed * timePassed)
     this.rotation += (this.rotationalVelocity * timePassed)
 
-    // Check if we've hit a boundry or colided
-    if (this.xPos < 0) this.xPos = canvas.width
-    else if (this.xPos > canvas.width) this.xPos = 0
-
-    if (this.yPos < 0) this.yPos = canvas.height
-    else if (this.yPos > canvas.height) this.yPos = 0
   }
 
   this.collide = function() {
@@ -51,19 +57,13 @@ function projectile() {
   this.colType = 'projectile'
   this.colRadius = 1
 
-  this.draw = function() {
-    ctx.save()
-    ctx.translate(this.xPos, this.yPos)
-    ctx.rotate(this.rotation)
-
+  this.geometryDraw = function() {
     ctx.beginPath()
     ctx.moveTo(-15, 0)
     ctx.lineTo(0, 0)
     ctx.lineWidth = 1
     ctx.strokeStyle = 'yellow'
     ctx.stroke()
-
-    ctx.restore()
   }
 
   this.collide = function(obj) {
@@ -86,29 +86,12 @@ function enemyFighter() {
     var deltaX = player.xPos - this.xPos
     var deltaY = player.yPos - this.yPos
 
-    // Check if a shorter path exist by running off edges
-    // Calc possible distances off edges
-    var rightEdgeDelta = player.xPos - (this.xPos - canvas.width)
-    var leftEdgeDelta = player.xPos - (this.xPos + canvas.width)
-    var topEdgeDelta = player.yPos - (this.yPos + canvas.height)
-    var bottomEdgeDelta = player.yPos - (this.yPos + canvas.height)
-
-    // Are any of those more efficient than going the regular way?
-    if (Math.abs(rightEdgeDelta) < Math.abs(deltaX)) deltaX = rightEdgeDelta
-    else if (Math.abs(leftEdgeDelta) < Math.abs(deltaX)) {deltaX = leftEdgeDelta; console.log('deltaX reassigned')}
-    if (Math.abs(topEdgeDelta) < Math.abs(deltaY)) deltaY = topEdgeDelta
-    else if (Math.abs(bottomEdgeDelta) < Math.abs(deltaY)) deltaY = bottomEdgeDelta
-
     this.rotation = Math.atan2(deltaY, deltaX)
     this.xSpeed = Math.cos(this.rotation) * this.totalSpeed
     this.ySpeed = Math.sin(this.rotation) * this.totalSpeed
   }
 
-  this.draw = function() {
-    ctx.save()
-    ctx.translate(this.xPos, this.yPos)
-    ctx.rotate(this.rotation)
-
+  this.geometryDraw = function() {
     ctx.beginPath()
     ctx.moveTo(15, 0)
     ctx.lineTo(-15, 10)
@@ -118,12 +101,9 @@ function enemyFighter() {
     ctx.lineWidth = 1
     ctx.strokeStyle = 'red'
     ctx.stroke()
-
-    ctx.restore()
- 
   }
 
-  this.collide = function(type) {
+  this.collide = function(target) {
     this.explosionStartTime = new Date()
     this.explosionRadius = 0
     this.maxExplosionRadius = 80
@@ -139,9 +119,9 @@ function enemyFighter() {
       }
       this.explosionRadius = this.maxExplosionRadius * percentComplete
     }
-    this.draw = function() {
+    this.geometryDraw = function() {
       ctx.beginPath()
-      ctx.arc(this.xPos, this.yPos, this.explosionRadius, 0, 2*Math.PI, 1)
+      ctx.arc(0, 0, this.explosionRadius, 0, 2*Math.PI, 1)
       ctx.lineWidth = 1
       ctx.strokeStyle = "red"
       ctx.stroke()
@@ -156,13 +136,7 @@ function SquareDroid() {
   this.colRadius = 30
   this.rotationalVelocity = 2
 
-  this.draw = function() {
-    ctx.save()
-
-    // Set up our coord system with origin
-    ctx.translate(this.xPos, this.yPos)
-    ctx.rotate(this.rotation)
-
+  this.geometryDraw = function() {
     // Do the actual drawing
     ctx.beginPath()
     ctx.moveTo(-25, -25)
@@ -173,8 +147,6 @@ function SquareDroid() {
     ctx.lineWidth = 1
     ctx.strokeStyle = 'white'
     ctx.stroke()
-
-    ctx.restore()
   }
 }
 SquareDroid.prototype = new LinearMover()
@@ -219,20 +191,13 @@ function Player() {
     // Adjust our speed for air friction
     this.xSpeed -= this.xSpeed * GLOBAL_AIR_FRICTION * timePassed
     this.ySpeed -= this.ySpeed * GLOBAL_AIR_FRICTION * timePassed
-
-    // Check if we've hit a boundry or colided
-    if (this.xPos < 0) this.xPos = canvas.width
-    else if (this.xPos > canvas.width) this.xPos = 0
-
-    if (this.yPos < 0) this.yPos = canvas.height
-    else if (this.yPos > canvas.height) this.yPos = 0
   }
 
   this.draw = function() {
     // Save this because shit is about to get messy
     ctx.save()
     // Move to top left of where we want to draw
-    ctx.translate(this.xPos, this.yPos)
+    ctx.translate(canvas.width/2, canvas.height/2)
     // Rotate our whole coord system
     ctx.rotate(this.rotation)
 
@@ -271,6 +236,31 @@ function tick() {
   ctx.fillStyle = "rgba(0, 0, 0, 1)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // Draw starfied
+  var starGradient = ctx.createRadialGradient(0,0,0,0,0,15)
+  starGradient.addColorStop(0, "grey")
+  starGradient.addColorStop(0.1, "black")
+  starGradient.addColorStop(1, "black")
+  starField.forEach(function drawStarField(star, index, array) {
+    // Most stars will be too far to see, don't draw them if so
+    if (Math.abs(player.xPos - star[0]) > canvas.width/2) return
+    else if (Math.abs(player.yPos - star[1]) > canvas.height/2) return
+
+    // Still here? Good, let's draw some stars
+    ctx.save()
+    ctx.translate(canvas.width/2, canvas.height/2)
+    ctx.translate(star[0] - player.xPos, star[1] - player.yPos)
+
+    ctx.beginPath()
+    ctx.arc(0, 0, star[2], 0, 2*Math.PI, 1)
+    ctx.fillStyle=starGradient
+    ctx.lineWidth = 1
+    ctx.fill()
+    
+    ctx.restore()
+  })
+
+  // Draw everything else
   itemsToDraw.forEach(function(item, index, array) {
     item.update()
     item.draw()
@@ -309,7 +299,7 @@ function tick() {
 
   if (!keepOnTicking) return
   tickCount++
-  setTimeout(tick, 10)
+  setTimeout(tick, 5)
 }
 
 function randomInsertion(object, loc, rot, vol, rotVol) {
@@ -355,6 +345,12 @@ function main(initCounts) {
         player.accelerating = false
         break
     }
+  }
+
+  starField = []
+  for (var i = 0; i < NUMBER_OF_STARS; i++) {
+    var newStar = [(Math.random() - 0.5) * 2 * X_BOUNDRY,  (Math.random() - 0.5) * 2 * Y_BOUNDRY, Math.random() * 10]
+    starField.push(newStar)
   }
 
   itemsToDraw = [player]
