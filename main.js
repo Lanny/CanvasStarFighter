@@ -385,11 +385,11 @@ function main(initCounts) {
   keepOnTicking = true
 
   for (var i = 0; i < initCounts.fighters; i++) {
-    randomInsertion(enemyFighter, [Math.random() * canvas.width, Math.random() * canvas.height], 0, [0,0], 0)
+    randomInsertion(enemyFighter, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [0,0], 0)
   }
 
   for (var i = 0; i < initCounts.astroids; i++) {
-    randomInsertion(SquareDroid, [Math.random() * canvas.width, Math.random() * canvas.height], 0, [(Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100], (Math.random() - 0.5) * 2 * Math.PI)
+    randomInsertion(SquareDroid, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [(Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100], (Math.random() - 0.5) * 2 * Math.PI)
   }
 
   FPSCounter = { size : 0,
