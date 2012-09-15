@@ -213,6 +213,27 @@ function Player() {
     ctx.stroke()
 
     ctx.restore()
+
+    if (X_BOUNDRY - canvas.halfWidth < Math.abs(this.xPos)) {
+      var x = canvas.halfWidth + ((this.xPos>0?X_BOUNDRY:-X_BOUNDRY) - this.xPos)
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, canvas.height)
+      ctx.lineWidth=4
+      ctx.strokeStyle = "red"
+      ctx.stroke()
+    }
+
+    if (Y_BOUNDRY - canvas.halfHeight < Math.abs(this.yPos)) {
+      var y = canvas.halfHeight + ((this.yPos>0?Y_BOUNDRY:-Y_BOUNDRY) - this.yPos)
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(canvas.width, y)
+      ctx.lineWidth=4
+      ctx.strokeStyle = "red"
+      ctx.stroke()
+    }
+ 
   }
 
   this.collide = function(type) {
@@ -263,11 +284,18 @@ function tick() {
   // Draw everything else
   itemsToDraw.forEach(function(item, index, array) {
     item.update()
+    // Check that the item hasn't floated beyond the field of battle
+    if (Math.abs(item.xPos) > X_BOUNDRY || Math.abs(item.yPos) > Y_BOUNDRY) item.collide({colType:"boundry"})
+
+    // If the item in question is beyond the player's sight don't bother to draw or collision check
+    if (Math.abs(item.xPos - player.xPos) > canvas.width || Math.abs(item.yPos - player.yPos) > canvas.height) return
     item.draw()
 
     // Check for collisions
     itemsToDraw.forEach(function collisionCheck(secondItem, index, array) {
+      // Don't check an item against itself
       if (item == secondItem) return
+      
 
       var distance = Math.sqrt(Math.pow(Math.abs(item.xPos - secondItem.xPos), 2) + Math.pow(Math.abs(item.yPos - secondItem.yPos), 2))
       if (distance <= item.colRadius + secondItem.colRadius) {
@@ -377,6 +405,8 @@ function start() {
   canvas = document.getElementById('primary_canvas')
   canvas.width = window.innerWidth
   canvas.height = window.innerHeight
+  canvas.halfWidth = canvas.width/2
+  canvas.halfHeight = canvas.height/2
   ctx = canvas.getContext('2d')
 
   // I see a blank canvas and I want to paint it black
