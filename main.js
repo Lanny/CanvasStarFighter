@@ -210,10 +210,10 @@ function SquareDroid() {
   this.collide = function(target) {
     // Let's make this baby bounce!
     var grossSpeed = Math.sqrt(Math.pow(this.xSpeed, 2) + Math.pow(this.ySpeed, 2))
-    var targetSlope = Math.atan2(target.ySpeed, target.xSpeed)
+    var lineOfReflection = Math.atan2(target.ySpeed, target.xSpeed)
     var thisSlope = Math.atan2(this.ySpeed, this.xSpeed)
-    var diff = targetSlope - thisSlope
-    var newSlope = targetSlope - Math.PI + diff
+    var diff = lineOfReflection - thisSlope
+    var newSlope = lineOfReflection - Math.PI + diff
     this.xSpeed = Math.cos(newSlope) * grossSpeed
     this.ySpeed = Math.sin(newSlope) * grossSpeed
   }
@@ -534,11 +534,13 @@ function main(initCounts) {
   }
   
   //Test code
+  /*
   insertObject(enemyFighter, [500,500], 0, [0,0], 0)
   var foo = new friendlyDreadnought() 
   foo.xPos = 0
   foo.yPos = 0
   itemsToDraw.push(foo)
+  */
 
   //End test code
 
