@@ -25,6 +25,15 @@ function drawHitCircle(target) {
   ctx.arc(0, 0, target.colRadius, 0, 2*Math.PI, 1)
   ctx.strokeStyle = 'yellow'
   ctx.stroke()
+
+  if (target.colType == 'complex') {
+    target.colCircleArray.forEach(function(circ, index, array) {
+      ctx.beginPath()
+      ctx.arc(circ[0], circ[1], circ[2], 0, 2*Math.PI, 1)
+      ctx.strokeStyle = 'yellow'
+      ctx.stroke()
+    })
+  }
 }
 
 function LinearMover() {
@@ -116,6 +125,7 @@ function projectile() {
 
   this.geometryDraw = function() {
     ctx.beginPath()
+    ctx.lineTo(-10, 0)
     ctx.lineTo(0, 0)
     ctx.lineWidth = 1
     ctx.strokeStyle = 'yellow'
@@ -221,49 +231,51 @@ function SquareDroid() {
 SquareDroid.prototype = new LinearMover()
 
 function friendlyDreadnought() {
-  this.colRadius = 50
+  this.colType = 'complex'
+  this.colCircleArray = [[90,0,50], [0,0,50], [-90,0,50]]
+  this.colRadius = 145
   this.geometryDraw = function() {
     ctx.beginPath()
-    ctx.moveTo(50, -20)
-    ctx.lineTo(50, 20)
-    ctx.lineTo(-10, 50)
+    ctx.moveTo(150, -20)
+    ctx.lineTo(150, 20)
+    ctx.lineTo(90, 50)
+    ctx.lineTo(50, 50)
+    ctx.lineTo(50, 30)
+    ctx.lineTo(10, 30)
+    ctx.lineTo(10, 50)
+    ctx.lineTo(-20, 50)
+    ctx.lineTo(-20, 45)
+    ctx.lineTo(-50, 45)
     ctx.lineTo(-50, 50)
-    ctx.lineTo(-50, 30)
-    ctx.lineTo(-90, 30)
-    ctx.lineTo(-90, 50)
-    ctx.lineTo(-120, 50)
-    ctx.lineTo(-120, 45)
-    ctx.lineTo(-150, 45)
-    ctx.lineTo(-150, 50)
-    ctx.lineTo(-180, 50)
-    ctx.lineTo(-180, 45)
-    ctx.lineTo(-210, 45)
-    ctx.lineTo(-210, 50)
-    ctx.lineTo(-240, 50)
-    ctx.lineTo(-240, 40)
-    ctx.lineTo(-230, 40)
-    ctx.lineTo(-230, 20)
-    ctx.lineTo(-240, 20)
+    ctx.lineTo(-80, 50)
+    ctx.lineTo(-80, 45)
+    ctx.lineTo(-110, 45)
+    ctx.lineTo(-110, 50)
+    ctx.lineTo(-140, 50)
+    ctx.lineTo(-140, 40)
+    ctx.lineTo(-130, 40)
+    ctx.lineTo(-130, 20)
+    ctx.lineTo(-140, 20)
     // Now draw the other side
-    ctx.lineTo(-240, -20)
-    ctx.lineTo(-230, -20)
-    ctx.lineTo(-230, -40)
-    ctx.lineTo(-240, -40)
-    ctx.lineTo(-240, -50)
-    ctx.lineTo(-210, -50)
-    ctx.lineTo(-210, -45)
-    ctx.lineTo(-180, -45)
-    ctx.lineTo(-180, -50)
-    ctx.lineTo(-150, -50)
-    ctx.lineTo(-150, -45)
-    ctx.lineTo(-120, -45)
-    ctx.lineTo(-120, -50)
-    ctx.lineTo(-90, -50)
-    ctx.lineTo(-90, -30)
-    ctx.lineTo(-50, -30)
+    ctx.lineTo(-140, -20)
+    ctx.lineTo(-130, -20)
+    ctx.lineTo(-130, -40)
+    ctx.lineTo(-140, -40)
+    ctx.lineTo(-140, -50)
+    ctx.lineTo(-110, -50)
+    ctx.lineTo(-110, -45)
+    ctx.lineTo(-80, -45)
+    ctx.lineTo(-80, -50)
     ctx.lineTo(-50, -50)
-    ctx.lineTo(-10, -50)
-    ctx.lineTo(50, -20)
+    ctx.lineTo(-50, -45)
+    ctx.lineTo(-20, -45)
+    ctx.lineTo(-20, -50)
+    ctx.lineTo(10, -50)
+    ctx.lineTo(10, -30)
+    ctx.lineTo(50, -30)
+    ctx.lineTo(50, -50)
+    ctx.lineTo(90, -50)
+    ctx.lineTo(150, -20)
 
     ctx.strokeStyle = 'green'
     ctx.stroke()
@@ -434,14 +446,39 @@ function tick() {
     itemsToDraw.forEach(function collisionCheck(secondItem, index, array) {
       // Don't check an item against itself
       if (item == secondItem) return
-      
 
       var distance = Math.sqrt(Math.pow(Math.abs(item.xPos - secondItem.xPos), 2) + Math.pow(Math.abs(item.yPos - secondItem.yPos), 2))
       if (distance <= item.colRadius + secondItem.colRadius) {
-        // Collision happened, call collide methods and pass each others collision types so each
-        // object knows what to do
-        item.collide(secondItem)
-        secondItem.collide(item)
+        // Collisions may have happened, definitely in the case of simple 
+        // objects, maybe for complex ones
+        if (item.colType == "complex" || secondItem.colType == "complex") {
+          // Theoretically we only have to check item for complexity since
+          // every possible item will be checked
+
+          // Identify which object is the complex one. God help us when we have
+          // two complex objects collide
+          var complexObj = item.colType == "complex"?item:secondItem
+          var simpleObj = item.colType == "complex"?secondItem:item
+
+          complexObj.colCircleArray.forEach(function(subitem, index, array) {
+            // Adjust each array from local to universal coords
+            subitem = [(subitem[0] * Math.cos(complexObj.rotation)) + complexObj.xPos, (subitem[1] * Math.sin(complexObj.rotation)) + complexObj.yPos, subitem[2]]
+
+            // And do our calculations
+            var distance = Math.sqrt(Math.pow(Math.abs(subitem[0] - simpleObj.xPos), 2) + Math.pow(Math.abs(subitem[1] - simpleObj.yPos), 2))
+            if (distance <= subitem[2] + simpleObj.colRadius) {
+              console.log(subitem)
+              console.log(distance)
+              item.collide(secondItem)
+              secondItem.collide(item)
+            }
+          })
+        }
+
+        else {
+          item.collide(secondItem)
+          secondItem.collide(item)
+        }
       }
     })
   })
@@ -534,13 +571,7 @@ function main(initCounts) {
   }
   
   //Test code
-  /*
-  insertObject(enemyFighter, [500,500], 0, [0,0], 0)
-  var foo = new friendlyDreadnought() 
-  foo.xPos = 0
-  foo.yPos = 0
-  itemsToDraw.push(foo)
-  */
+  insertObject(friendlyDreadnought, [500,500], 0, [0,0], 0)
 
   //End test code
 
