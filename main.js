@@ -598,6 +598,11 @@ function start() {
 
   document.getElementById('start_button').onclick = function fireMain() {
     DEV_MODE = document.getElementById('dev_mode').checked
+    DRAW_HIT_CIRCLES = document.getElementById('draw_hit_circles').checked
+    X_BOUNDRY = document.getElementById('X_BOUNDRY').value / 2
+    Y_BOUNDRY = document.getElementById('Y_BOUNDRY').value / 2
+    NUMBER_OF_STARS = document.getElementById('star_count').value 
+    GLOBAL_AIR_FRICTION = document.getElementById('air_friction').value 
 
     var initCounts = {}
     initCounts.fighters = document.getElementById('fighter_count').value
