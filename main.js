@@ -28,6 +28,7 @@ function drawHitCircle(target) {
 
   if (target.colType == 'complex') {
     target.colCircleArray.forEach(function(circ, index, array) {
+      //circ = [(circ[0] * Math.cos(target.rotation)), (circ[1] * Math.sin(target.rotation)), circ[2]]
       ctx.beginPath()
       ctx.arc(circ[0], circ[1], circ[2], 0, 2*Math.PI, 1)
       ctx.strokeStyle = 'yellow'
@@ -234,6 +235,7 @@ function friendlyDreadnought() {
   this.colType = 'complex'
   this.colCircleArray = [[90,0,50], [0,0,50], [-90,0,50]]
   this.colRadius = 145
+  this.gunRotation = 0
   this.geometryDraw = function() {
     ctx.beginPath()
     ctx.moveTo(150, -20)
@@ -279,6 +281,20 @@ function friendlyDreadnought() {
 
     ctx.strokeStyle = 'green'
     ctx.stroke()
+
+    // Draw gun
+    //ctx.rotate(-this.rotation)
+    //ctx.rotate(this.gunRotation)
+
+    ctx.beginPath()
+    ctx.arc(90, 0, 20, 0.25, 2*Math.PI - 0.25, 0)
+    ctx.moveTo(90,-5)
+    ctx.lineTo(90, 5)
+    ctx.lineTo(120, 5)
+    ctx.lineTo(120, -5)
+    ctx.lineTo(90,-5)
+    ctx.strokeStyle = 'green'
+    ctx.stroke()
   }
 }
 friendlyDreadnought.prototype = new LinearMover()
@@ -295,7 +311,8 @@ function induceExplosion(target) {
   target.additionalUpdate = function() {
     var percentComplete = (new Date().getTime() - this.explosionStartTime.getTime()) / this.explosionTime
     if (percentComplete > 1) {
-      itemsToDraw.splice(itemsToDraw.lastIndexOf(this), itemsToDraw.lastIndexOf(this)) 
+      i = itemsToDraw.lastIndexOf(this)
+      itemsToDraw.splice(i, i) 
     }
     this.explosionRadius = this.maxExplosionRadius * percentComplete
   }
@@ -358,7 +375,9 @@ function Player() {
     if (DRAW_HIT_CIRCLES) drawHitCircle(this)
     ctx.restore()
 
+    // Only draw boundry lines if we're close enough to see them
     if (X_BOUNDRY - canvas.halfWidth < Math.abs(this.xPos)) {
+      // Determine if we're approaching the positive or negative boundry
       var x = canvas.halfWidth + ((this.xPos>0?X_BOUNDRY:-X_BOUNDRY) - this.xPos)
       ctx.beginPath()
       ctx.moveTo(x, 0)
@@ -410,7 +429,7 @@ function tick() {
   // Draw starfied
   var starGradient = ctx.createRadialGradient(0,0,0,0,0,15)
   starGradient.addColorStop(0, "grey")
-  starGradient.addColorStop(0.1, "black")
+  starGradient.addColorStop(0.2, "black")
   starGradient.addColorStop(1, "black")
   starField.forEach(function drawStarField(star, index, array) {
     // Most stars will be too far to see, don't draw them if so
@@ -462,7 +481,13 @@ function tick() {
 
           complexObj.colCircleArray.forEach(function(subitem, index, array) {
             // Adjust each array from local to universal coords
-            subitem = [(subitem[0] * Math.cos(complexObj.rotation)) + complexObj.xPos, (subitem[1] * Math.sin(complexObj.rotation)) + complexObj.yPos, subitem[2]]
+
+            // Distance from complexObj of this sub-collider
+            var dist = Math.sqrt(Math.pow(subitem[0], 2) + Math.pow(subitem[1], 2))
+            // Angle of this subcollider relative to complexObj
+            var angle = Math.atan2(subitem[1], subitem[0])
+            // Calculate rotated coords relative to complexObj, then add complexObj coords for universal coords
+            subitem = [(dist * Math.cos(angle + complexObj.rotation)) + complexObj.xPos, (dist * Math.sin(angle + complexObj.rotation)) + complexObj.yPos, subitem[2]]
 
             // And do our calculations
             var distance = Math.sqrt(Math.pow(Math.abs(subitem[0] - simpleObj.xPos), 2) + Math.pow(Math.abs(subitem[1] - simpleObj.yPos), 2))
@@ -515,6 +540,8 @@ function insertObject(object, loc, rot, vol, rotVol) {
   obj.ySpeed = vol[1]
   obj.rotationalVolicity = rotVol
   itemsToDraw.push(obj)
+
+  return obj
 }
 
 function main(initCounts) {
@@ -555,7 +582,7 @@ function main(initCounts) {
   // to procede with that in the future. Here we make the starfield.
   starField = []
   for (var i = 0; i < NUMBER_OF_STARS; i++) {
-    var newStar = [(Math.random() - 0.5) * 2 * X_BOUNDRY,  (Math.random() - 0.5) * 2 * Y_BOUNDRY, Math.random() * 10]
+    var newStar = [(Math.random() - 0.5) * 2 * X_BOUNDRY, (Math.random() - 0.5) * 2 * Y_BOUNDRY, Math.random() * 5]
     starField.push(newStar)
   }
 
@@ -571,7 +598,7 @@ function main(initCounts) {
   }
   
   //Test code
-  insertObject(friendlyDreadnought, [500,500], 0, [0,0], 0)
+  dn = insertObject(friendlyDreadnought, [500,500], 0, [0,0], 0)
 
   //End test code
 
