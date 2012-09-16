@@ -1,9 +1,12 @@
-GLOBAL_AIR_FRICTION = 0.2 // Coeddicient of friction, factor of reduction of speed per second
+GLOBAL_AIR_FRICTION = 0.2 // Coefficient of friction, factor of reduction of speed per second
 ACCELERATION_FORCE = 100 // Pixles per second accelerated per second
 PLAYER_TURN_SPEED = 3 // Radians turned per second, basically pi but hoping to avoid float arithmatic
 NUMBER_OF_STARS = 5000 // Number of stars to simultaniously track
-X_BOUNDRY = 5000
-Y_BOUNDRY = 5000
+BULLET_VELOCITY = 500 // Pixels per second that a conventional fighter bullet travels
+FIGHTER_TARGETING_DISTANCE_SQUARED = Math.pow(1000, 2) // Distance that fighters have to be from their target before firing
+X_BOUNDRY = 5000 // Size of the game, passing beyond this distance from 0,0 is lethal
+Y_BOUNDRY = 5000 // Also it's marked with a big red line ;)
+DRAW_HIT_CIRCLES = false // Draw hit circles for movers
 DEV_MODE = true // Set true for additional debugging and performance stats
 
 /* A Quick Note Regarding Colission Detection :
@@ -16,6 +19,13 @@ is centered on (obj.xPos, obj.yPos), so make sure objects sorta confrom to that 
 
 Any more than you and you're on your own, you poor poor soul.  
 */
+
+function drawHitCircle(target) {
+  ctx.beginPath()
+  ctx.arc(0, 0, target.colRadius, 0, 2*Math.PI, 1)
+  ctx.strokeStyle = 'yellow'
+  ctx.stroke()
+}
 
 function LinearMover() {
   this.xSpeed = 0
@@ -36,6 +46,7 @@ function LinearMover() {
 
     this.geometryDraw()
 
+    if (DRAW_HIT_CIRCLES) drawHitCircle(this)
     ctx.restore()
   }
 
@@ -49,9 +60,55 @@ function LinearMover() {
   }
 
   this.collide = function() {
-    console.log('Collision detected')
+    return
   }
 }
+
+function physMover() {
+  // A super-class for objects that accelerate and obey game physics as opposed to just
+  // floating freely
+  this.xSpeed = 0
+  this.ySpeed = 0
+  this.accelerating = false;
+  this.acceleratoryPower = 1
+  this.xPos = 0
+  this.yPos = 0
+  this.rotation = 0
+  this.colRadius = 0
+  this.colType = 'env'
+
+  this.additionalUpdate = function() {return}
+
+  this.update = function() {
+    this.additionalUpdate()
+
+    // Adjust our location
+    this.xPos += (this.xSpeed * timePassed)
+    this.yPos += (this.ySpeed * timePassed)
+
+    // Adjust for acceleration
+    if (this.accelerating) {
+      this.xSpeed += Math.cos(this.rotation) * this.acceleratoryPower * timePassed
+      this.ySpeed += Math.sin(this.rotation) * this.acceleratoryPower * timePassed
+    }
+
+    // Adjust our speed for air friction
+    this.xSpeed -= this.xSpeed * GLOBAL_AIR_FRICTION * timePassed
+    this.ySpeed -= this.ySpeed * GLOBAL_AIR_FRICTION * timePassed
+  }
+
+  this.draw = function() {
+    ctx.save()
+    ctx.translate(canvas.width/2, canvas.height/2)
+    ctx.translate(this.xPos - player.xPos, this.yPos - player.yPos)
+    ctx.rotate(this.rotation)
+
+    this.geometryDraw()
+
+    if (DRAW_HIT_CIRCLES) drawHitCircle(this)
+    ctx.restore()
+  }
+} 
 
 function projectile() {
   this.colType = 'projectile'
@@ -78,18 +135,42 @@ projectile.prototype = new LinearMover()
 function enemyFighter() {
   this.colRadius = 15
   this.colType = 'ship'
-  this.totalSpeed = 100
+  this.acceleratoryPower = 100
+  this.accelerating = true
+  this.lastShotFired = new Date().getTime()
+  this.rateOfFire = 3000
+  this.target = player
 
   this.additionalUpdate = function() {
     // Point the fighter at the player
     // Find the cartesian distance
-    var deltaX = player.xPos - this.xPos
-    var deltaY = player.yPos - this.yPos
+    var deltaX = this.target.xPos - this.xPos
+    var deltaY = this.target.yPos - this.yPos
 
     this.rotation = Math.atan2(deltaY, deltaX)
-    this.xSpeed = Math.cos(this.rotation) * this.totalSpeed
-    this.ySpeed = Math.sin(this.rotation) * this.totalSpeed
+    
+    if (!(tickCount % 40)) {
+      if (Math.pow(deltaX, 2) + Math.pow(deltaY, 2) < FIGHTER_TARGETING_DISTANCE_SQUARED) {
+        if ((new Date().getTime() - this.lastShotFired ) > this.rateOfFire) {
+          this.shoot()
+        }
+      }
+    }
   }
+
+  this.shoot = function() {
+    var shot = new projectile()
+    shot.rotation = this.rotation
+    var cos = Math.cos(shot.rotation)
+    var sin = Math.sin(shot.rotation)
+    shot.xPos = this.xPos + ((this.colRadius + 5) * cos) + (this.xSpeed * timePassed)
+    shot.yPos = this.yPos + ((this.colRadius + 5) * sin) + (this.ySpeed * timePassed)
+    shot.xSpeed = BULLET_VELOCITY * cos
+    shot.ySpeed = BULLET_VELOCITY * sin
+    this.lastShotFired = new Date().getTime()
+    itemsToDraw.push(shot)
+  }
+
 
   this.geometryDraw = function() {
     ctx.beginPath()
@@ -104,31 +185,10 @@ function enemyFighter() {
   }
 
   this.collide = function(target) {
-    this.explosionStartTime = new Date()
-    this.explosionRadius = 0
-    this.maxExplosionRadius = 80
-    this.explosionTime = 600
-    this.colRadius = -canvas.width
-    this.xSpeed = 0
-    this.ySpeed = 0
-
-    this.additionalUpdate = function() {
-      var percentComplete = (new Date().getTime() - this.explosionStartTime.getTime()) / this.explosionTime
-      if (percentComplete > 1) {
-        itemsToDraw.splice(itemsToDraw.lastIndexOf(this), itemsToDraw.lastIndexOf(this)) 
-      }
-      this.explosionRadius = this.maxExplosionRadius * percentComplete
-    }
-    this.geometryDraw = function() {
-      ctx.beginPath()
-      ctx.arc(0, 0, this.explosionRadius, 0, 2*Math.PI, 1)
-      ctx.lineWidth = 1
-      ctx.strokeStyle = "red"
-      ctx.stroke()
-    }
+    induceExplosion(this)
   }
 }
-enemyFighter.prototype = new LinearMover()
+enemyFighter.prototype = new physMover()
 
 function SquareDroid() {
   this.xSpeed = 20
@@ -151,6 +211,81 @@ function SquareDroid() {
 }
 SquareDroid.prototype = new LinearMover()
 
+function friendlyDreadnought() {
+  this.colRadius = 50
+  this.geometryDraw = function() {
+    ctx.beginPath()
+    ctx.moveTo(50, -20)
+    ctx.lineTo(50, 20)
+    ctx.lineTo(-10, 50)
+    ctx.lineTo(-50, 50)
+    ctx.lineTo(-50, 30)
+    ctx.lineTo(-90, 30)
+    ctx.lineTo(-90, 50)
+    ctx.lineTo(-120, 50)
+    ctx.lineTo(-120, 45)
+    ctx.lineTo(-150, 45)
+    ctx.lineTo(-150, 50)
+    ctx.lineTo(-180, 50)
+    ctx.lineTo(-180, 45)
+    ctx.lineTo(-210, 45)
+    ctx.lineTo(-210, 50)
+    ctx.lineTo(-240, 50)
+    ctx.lineTo(-240, 40)
+    ctx.lineTo(-230, 40)
+    ctx.lineTo(-230, 20)
+    ctx.lineTo(-240, 20)
+    // Now draw the other side
+    ctx.lineTo(-240, -20)
+    ctx.lineTo(-230, -20)
+    ctx.lineTo(-230, -40)
+    ctx.lineTo(-240, -40)
+    ctx.lineTo(-240, -50)
+    ctx.lineTo(-210, -50)
+    ctx.lineTo(-210, -45)
+    ctx.lineTo(-180, -45)
+    ctx.lineTo(-180, -50)
+    ctx.lineTo(-150, -50)
+    ctx.lineTo(-150, -45)
+    ctx.lineTo(-120, -45)
+    ctx.lineTo(-120, -50)
+    ctx.lineTo(-90, -50)
+    ctx.lineTo(-90, -30)
+    ctx.lineTo(-50, -30)
+    ctx.lineTo(-50, -50)
+    ctx.lineTo(-10, -50)
+    ctx.lineTo(50, -20)
+
+    ctx.strokeStyle = 'green'
+    ctx.stroke()
+  }
+}
+friendlyDreadnought.prototype = new LinearMover()
+
+function induceExplosion(target) {
+  target.explosionStartTime = new Date()
+  target.explosionRadius = 0
+  target.maxExplosionRadius = 80
+  target.explosionTime = 600
+  target.colRadius = 0
+  target.xSpeed = 0
+  target.ySpeed = 0
+
+  target.additionalUpdate = function() {
+    var percentComplete = (new Date().getTime() - this.explosionStartTime.getTime()) / this.explosionTime
+    if (percentComplete > 1) {
+      itemsToDraw.splice(itemsToDraw.lastIndexOf(this), itemsToDraw.lastIndexOf(this)) 
+    }
+    this.explosionRadius = this.maxExplosionRadius * percentComplete
+  }
+  target.geometryDraw = function() {
+    ctx.beginPath()
+    ctx.arc(0, 0, this.explosionRadius, 0, 2*Math.PI, 1)
+    ctx.lineWidth = 1
+    ctx.strokeStyle = "red"
+    ctx.stroke()
+  }
+}
  
 function Player() {
   this.xSpeed = 0
@@ -163,18 +298,6 @@ function Player() {
   this.colRadius = 15
   this.colType = 'player'
   this.health = 10
-
-  this.shoot = function() {
-    var shot = new projectile()
-    shot.rotation = this.rotation
-    var cos = Math.cos(shot.rotation)
-    var sin = Math.sin(shot.rotation)
-    shot.xPos = this.xPos + ((this.colRadius + 5) * cos) + (this.xSpeed * timePassed)
-    shot.yPos = this.yPos + ((this.colRadius + 5) * sin) + (this.ySpeed * timePassed)
-    shot.xSpeed = 500 * cos
-    shot.ySpeed = 500 * sin
-    itemsToDraw.push(shot)
-  }
 
   this.update = function() {
     // Adjust our location
@@ -212,6 +335,7 @@ function Player() {
     ctx.strokeStyle = 'blue'
     ctx.stroke()
 
+    if (DRAW_HIT_CIRCLES) drawHitCircle(this)
     ctx.restore()
 
     if (X_BOUNDRY - canvas.halfWidth < Math.abs(this.xPos)) {
@@ -234,6 +358,12 @@ function Player() {
       ctx.stroke()
     }
  
+  }
+
+  this.activateConversionCore = function() {
+    var grossSpeed = Math.sqrt(Math.pow(this.xSpeed, 2) + Math.pow(this.ySpeed, 2))
+    this.xSpeed = Math.cos(this.rotation) * grossSpeed
+    this.ySpeed = Math.sin(this.rotation) * grossSpeed
   }
 
   this.collide = function(type) {
@@ -330,7 +460,7 @@ function tick() {
   setTimeout(tick, 5)
 }
 
-function randomInsertion(object, loc, rot, vol, rotVol) {
+function insertObject(object, loc, rot, vol, rotVol) {
   var obj = new object()
   obj.xPos = loc[0]
   obj.yPos = loc[1]
@@ -359,7 +489,7 @@ function main(initCounts) {
         player.accelerating = true
         break
       case 32 :
-        player.shoot()
+        player.activateConversionCore()
         break
     }
   }
@@ -375,6 +505,8 @@ function main(initCounts) {
     }
   }
 
+  // Stars are arrays of [x,y,size]. Currently size is more or less ignored, we'll see how we want
+  // to procede with that in the future. Here we make the starfield.
   starField = []
   for (var i = 0; i < NUMBER_OF_STARS; i++) {
     var newStar = [(Math.random() - 0.5) * 2 * X_BOUNDRY,  (Math.random() - 0.5) * 2 * Y_BOUNDRY, Math.random() * 10]
@@ -385,12 +517,21 @@ function main(initCounts) {
   keepOnTicking = true
 
   for (var i = 0; i < initCounts.fighters; i++) {
-    randomInsertion(enemyFighter, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [0,0], 0)
+    insertObject(enemyFighter, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [0,0], 0)
   }
 
   for (var i = 0; i < initCounts.astroids; i++) {
-    randomInsertion(SquareDroid, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [(Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100], (Math.random() - 0.5) * 2 * Math.PI)
+    insertObject(SquareDroid, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [(Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100], (Math.random() - 0.5) * 2 * Math.PI)
   }
+  
+  //Test code
+  insertObject(enemyFighter, [500,500], 0, [0,0], 0)
+  var foo = new friendlyDreadnought() 
+  foo.xPos = 0
+  foo.yPos = 0
+  itemsToDraw.push(foo)
+
+  //End test code
 
   FPSCounter = { size : 0,
                  avg : 0,
@@ -420,7 +561,6 @@ function start() {
     initCounts.fighters = document.getElementById('fighter_count').value
     initCounts.astroids = document.getElementById('astroid_count').value
 
-    console.log(initCounts)
     document.body.removeChild(document.getElementById('optionsDiv'))
     main(initCounts)
   }
