@@ -116,7 +116,6 @@ function projectile() {
 
   this.geometryDraw = function() {
     ctx.beginPath()
-    ctx.moveTo(-15, 0)
     ctx.lineTo(0, 0)
     ctx.lineWidth = 1
     ctx.strokeStyle = 'yellow'
@@ -171,7 +170,6 @@ function enemyFighter() {
     itemsToDraw.push(shot)
   }
 
-
   this.geometryDraw = function() {
     ctx.beginPath()
     ctx.moveTo(15, 0)
@@ -207,6 +205,17 @@ function SquareDroid() {
     ctx.lineWidth = 1
     ctx.strokeStyle = 'white'
     ctx.stroke()
+  }
+
+  this.collide = function(target) {
+    // Let's make this baby bounce!
+    var grossSpeed = Math.sqrt(Math.pow(this.xSpeed, 2) + Math.pow(this.ySpeed, 2))
+    var targetSlope = Math.atan2(target.ySpeed, target.xSpeed)
+    var thisSlope = Math.atan2(this.ySpeed, this.xSpeed)
+    var diff = targetSlope - thisSlope
+    var newSlope = targetSlope - Math.PI + diff
+    this.xSpeed = Math.cos(newSlope) * grossSpeed
+    this.ySpeed = Math.sin(newSlope) * grossSpeed
   }
 }
 SquareDroid.prototype = new LinearMover()
@@ -297,7 +306,6 @@ function Player() {
   this.rotationalVelocity = 0
   this.colRadius = 15
   this.colType = 'player'
-  this.health = 10
 
   this.update = function() {
     // Adjust our location
@@ -415,7 +423,8 @@ function tick() {
   itemsToDraw.forEach(function(item, index, array) {
     item.update()
     // Check that the item hasn't floated beyond the field of battle
-    if (Math.abs(item.xPos) > X_BOUNDRY || Math.abs(item.yPos) > Y_BOUNDRY) item.collide({colType:"boundry"})
+    if (Math.abs(item.yPos) > Y_BOUNDRY) item.collide({colType:"boundry", xSpeed:0, ySpeed:1})
+    if (Math.abs(item.xPos) > X_BOUNDRY) item.collide({colType:"boundry", xSpeed:1, ySpeed:0})
 
     // If the item in question is beyond the player's sight don't bother to draw or collision check
     if (Math.abs(item.xPos - player.xPos) > canvas.width || Math.abs(item.yPos - player.yPos) > canvas.height) return
