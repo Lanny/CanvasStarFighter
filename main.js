@@ -1,5 +1,5 @@
 GLOBAL_AIR_FRICTION = 0.2 // Coefficient of friction, factor of reduction of speed per second
-ACCELERATION_FORCE = 100 // Pixles per second accelerated per second
+ACCELERATION_FORCE = 200 // Pixles per second accelerated per second
 PLAYER_TURN_SPEED = 3 // Radians turned per second, basically pi but hoping to avoid float arithmatic
 NUMBER_OF_STARS = 5000 // Number of stars to simultaniously track
 BULLET_VELOCITY = 500 // Pixels per second that a conventional fighter bullet travels
@@ -426,15 +426,19 @@ function Player() {
       
     this.conversionStarted = new Date().getTime()
     this.conversionEffectRadius = 75
+    this.storedSpeed = Math.sqrt(Math.pow(this.xSpeed, 2) + Math.pow(this.ySpeed, 2))
 
     this.additionalUpdate = function() {
+      // Zero out any speed, we're sitting still
+      this.xSpeed = 0
+      this.ySpeed = 0
+
       var warmUpCompletion = ((new Date().getTime()) - this.conversionStarted ) / CONVERSION_CORE_WARMUP_TIME
 
       if (warmUpCompletion > 1) {
         // Warmup done, let's rock :p
-        var grossSpeed = Math.sqrt(Math.pow(this.xSpeed, 2) + Math.pow(this.ySpeed, 2))
-        this.xSpeed = Math.cos(this.rotation) * grossSpeed
-        this.ySpeed = Math.sin(this.rotation) * grossSpeed
+        this.xSpeed = Math.cos(this.rotation) * this.storedSpeed
+        this.ySpeed = Math.sin(this.rotation) * this.storedSpeed
 
         this.conversionEffectRadius = 0
         this.additionalDraw = function() {}
