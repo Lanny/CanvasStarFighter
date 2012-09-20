@@ -67,7 +67,16 @@
           <td>Draw hit circles?</td>
           <td><input type="checkbox" id="draw_hit_circles"></td>
         <tr>
-          <td><button id="start_button">Start</button></td>
+          <td>
+            <button id="start_button">Start</button>
+            <button onClick="(function(){
+                              document.getElementById('astroid_count').value = 0;
+                              document.getElementById('fighter_count').value = 0;
+                              })()">
+            Sandbox</button>
+
+
+          </td>
         </tr>
       </table>
     </div>
