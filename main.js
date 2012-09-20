@@ -3,6 +3,7 @@ ACCELERATION_FORCE = 100 // Pixles per second accelerated per second
 PLAYER_TURN_SPEED = 3 // Radians turned per second, basically pi but hoping to avoid float arithmatic
 NUMBER_OF_STARS = 5000 // Number of stars to simultaniously track
 BULLET_VELOCITY = 500 // Pixels per second that a conventional fighter bullet travels
+CONVERSION_CORE_WARMUP_TIME = 500 // Time in milliseconds that it takes to convert momentum
 FIGHTER_TARGETING_DISTANCE_SQUARED = Math.pow(1000, 2) // Distance that fighters have to be from their target before firing
 X_BOUNDRY = 5000 // Size of the game, passing beyond this distance from 0,0 is lethal
 Y_BOUNDRY = 5000 // Also it's marked with a big red line ;)
@@ -17,8 +18,7 @@ to the itemsToDraw array. On each game tick they'll be checked. Checking is kind
 retarded, each object's colRadius is used to determine a "hit circle". This hit circle
 is centered on (obj.xPos, obj.yPos), so make sure objects sorta confrom to that circle.
 
-Any more than you and you're on your own, you poor poor soul.  
-*/
+Any more than you and you're on your own, you poor poor soul. */
 
 function drawHitCircle(target) {
   ctx.beginPath()
@@ -236,6 +236,17 @@ function friendlyDreadnought() {
   this.colCircleArray = [[90,0,50], [0,0,50], [-90,0,50]]
   this.colRadius = 145
   this.gunRotation = 0
+  this.searchDistance = 500
+
+  this.callMeWhenYouFoundSomethingYouGraveySuckingPigDog = function(foundItem) {
+    var deltaX = foundItem.xPos - this.xPos
+    var deltaY = foundItem.yPos - this.yPos
+
+    var rot = Math.atan2(deltaY, deltaX)
+
+    this.gunRotation = rot
+  }
+
   this.geometryDraw = function() {
     ctx.beginPath()
     ctx.moveTo(150, -20)
@@ -284,15 +295,16 @@ function friendlyDreadnought() {
 
     // Draw gun
     //ctx.rotate(-this.rotation)
-    //ctx.rotate(this.gunRotation)
+    ctx.translate(90, 0)
+    ctx.rotate(this.gunRotation)
 
     ctx.beginPath()
-    ctx.arc(90, 0, 20, 0.25, 2*Math.PI - 0.25, 0)
-    ctx.moveTo(90,-5)
-    ctx.lineTo(90, 5)
-    ctx.lineTo(120, 5)
-    ctx.lineTo(120, -5)
-    ctx.lineTo(90,-5)
+    ctx.arc(0, 0, 20, 0.25, 2*Math.PI - 0.25, 0)
+    ctx.moveTo(0,-5)
+    ctx.lineTo(0, 5)
+    ctx.lineTo(30, 5)
+    ctx.lineTo(30, -5)
+    ctx.lineTo(0,-5)
     ctx.strokeStyle = 'green'
     ctx.stroke()
   }
@@ -351,6 +363,9 @@ function Player() {
     // Adjust our speed for air friction
     this.xSpeed -= this.xSpeed * GLOBAL_AIR_FRICTION * timePassed
     this.ySpeed -= this.ySpeed * GLOBAL_AIR_FRICTION * timePassed
+
+    // Sort of a callback type thing. I don't know
+    this.additionalUpdate()
   }
 
   this.draw = function() {
@@ -371,6 +386,8 @@ function Player() {
     ctx.lineWidth = 1
     ctx.strokeStyle = 'blue'
     ctx.stroke()
+
+    this.additionalDraw()
 
     if (DRAW_HIT_CIRCLES) drawHitCircle(this)
     ctx.restore()
@@ -399,10 +416,48 @@ function Player() {
  
   }
 
+  this.additionalDraw = function() {}
+  this.additionalUpdate = function() {}
+
   this.activateConversionCore = function() {
-    var grossSpeed = Math.sqrt(Math.pow(this.xSpeed, 2) + Math.pow(this.ySpeed, 2))
-    this.xSpeed = Math.cos(this.rotation) * grossSpeed
-    this.ySpeed = Math.sin(this.rotation) * grossSpeed
+    // If we've already activated a conversion we shouldn't do it again
+    // (Fuck javascript and its broken keydown even)
+    if (this.conversionEffectRadius) return
+      
+    this.conversionStarted = new Date().getTime()
+    this.conversionEffectRadius = 75
+
+    this.additionalUpdate = function() {
+      var warmUpCompletion = ((new Date().getTime()) - this.conversionStarted ) / CONVERSION_CORE_WARMUP_TIME
+
+      if (warmUpCompletion > 1) {
+        // Warmup done, let's rock :p
+        var grossSpeed = Math.sqrt(Math.pow(this.xSpeed, 2) + Math.pow(this.ySpeed, 2))
+        this.xSpeed = Math.cos(this.rotation) * grossSpeed
+        this.ySpeed = Math.sin(this.rotation) * grossSpeed
+
+        this.conversionEffectRadius = 0
+        this.additionalDraw = function() {}
+        this.additionalUpdate = function() {}
+      }
+
+      // Contract our effect radius as needed
+      this.conversionEffectRadius = 75 * (1-warmUpCompletion)
+    }
+
+    // Tack the effect draw function onto the player
+    this.additionalDraw = function() {
+      ctx.beginPath()
+      ctx.arc(0, 0, this.conversionEffectRadius, 0, 2*Math.PI, 1)
+      ctx.strokeStyle = "purple"
+      ctx.stroke()
+    }
+  }
+
+  this.deactivateConversionCore = function() {
+    this.additionalDraw = function() {}
+    this.additionalUpdate = function() {}
+    this.conversionEffectRadius = 0
   }
 
   this.collide = function(type) {
@@ -492,8 +547,6 @@ function tick() {
             // And do our calculations
             var distance = Math.sqrt(Math.pow(Math.abs(subitem[0] - simpleObj.xPos), 2) + Math.pow(Math.abs(subitem[1] - simpleObj.yPos), 2))
             if (distance <= subitem[2] + simpleObj.colRadius) {
-              console.log(subitem)
-              console.log(distance)
               item.collide(secondItem)
               secondItem.collide(item)
             }
@@ -503,6 +556,9 @@ function tick() {
         else {
           item.collide(secondItem)
           secondItem.collide(item)
+        }
+        if (item.searchDistance && item.searchDistance <= distance) {
+          item.callMeWhenYouFoundSomethingYouGraveySuckingPigDog(secondItem)
         }
       }
     })
@@ -574,6 +630,9 @@ function main(initCounts) {
         break
       case 38 :
         player.accelerating = false
+        break
+      case 32 :
+        player.deactivateConversionCore()
         break
     }
   }
