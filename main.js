@@ -173,8 +173,14 @@ function enemyFighter() {
     shot.rotation = this.rotation
     var cos = Math.cos(shot.rotation)
     var sin = Math.sin(shot.rotation)
-    shot.xPos = this.xPos + ((this.colRadius + 5) * cos) + (this.xSpeed * timePassed)
-    shot.yPos = this.yPos + ((this.colRadius + 5) * sin) + (this.ySpeed * timePassed)
+    // This mess is here so a shot doesn't hit the thing that fired it. What we're doing is :
+    // Take the shooter position. Offset by the collision radius so shot doesn't spawn inside
+    // then add the speed of the shooter so it doesn't collide next tick. Add to that the acceleration
+    // of the shooter because it's going to increase by next tic, and multiply that by time
+    // passed. Could still backfire if this tick is significantly shorter than the next one
+    // but we added a 5px buffer earlier so hopefully it'll work out.
+    shot.xPos = this.xPos + ((this.colRadius + 5) * cos) + ((this.xSpeed + (this.acceleratoryPower * cos)) * timePassed )
+    shot.yPos = this.yPos + ((this.colRadius + 5) * sin) + ((this.ySpeed + (this.acceleratoryPower * sin)) * timePassed )
     shot.xSpeed = BULLET_VELOCITY * cos
     shot.ySpeed = BULLET_VELOCITY * sin
     this.lastShotFired = new Date().getTime()
@@ -294,7 +300,6 @@ function friendlyDreadnought() {
     ctx.stroke()
 
     // Draw gun
-    //ctx.rotate(-this.rotation)
     ctx.translate(90, 0)
     ctx.rotate(this.gunRotation)
 
@@ -422,10 +427,11 @@ function Player() {
   this.activateConversionCore = function() {
     // If we've already activated a conversion we shouldn't do it again
     // (Fuck javascript and its broken keydown even)
-    if (this.conversionEffectRadius) return
+    if (this.ignoreConversion) {console.log(this.ignoreConversion);return}
       
     this.conversionStarted = new Date().getTime()
     this.conversionEffectRadius = 75
+    this.ignoreConversion = true
     this.storedSpeed = Math.sqrt(Math.pow(this.xSpeed, 2) + Math.pow(this.ySpeed, 2))
 
     this.additionalUpdate = function() {
@@ -436,6 +442,7 @@ function Player() {
       var warmUpCompletion = ((new Date().getTime()) - this.conversionStarted ) / CONVERSION_CORE_WARMUP_TIME
 
       if (warmUpCompletion > 1) {
+        console.log('laaaaaaa')
         // Warmup done, let's rock :p
         this.xSpeed = Math.cos(this.rotation) * this.storedSpeed
         this.ySpeed = Math.sin(this.rotation) * this.storedSpeed
@@ -459,9 +466,11 @@ function Player() {
   }
 
   this.deactivateConversionCore = function() {
+    console.log('deactivated')
     this.additionalDraw = function() {}
     this.additionalUpdate = function() {}
     this.conversionEffectRadius = 0
+    this.ignoreConversion = false
   }
 
   this.collide = function(type) {
@@ -610,7 +619,7 @@ function main(initCounts) {
   // init our player and bind input
   player = new Player()
 
-  window.onkeydown = function(e) {
+  window.addEventListener('keydown', function(e) {
     switch(e.keyCode) {
       case 37 :
         player.rotationalVelocity = -PLAYER_TURN_SPEED
@@ -625,9 +634,9 @@ function main(initCounts) {
         player.activateConversionCore()
         break
     }
-  }
+  })
 
-  window.onkeyup = function(e) {
+  window.addEventListener('keyup', function(e) {
     switch(e.keyCode) {
       case 37 : case 39 :
         player.rotationalVelocity = 0
@@ -639,7 +648,7 @@ function main(initCounts) {
         player.deactivateConversionCore()
         break
     }
-  }
+  })
 
   // Stars are arrays of [x,y,size]. Currently size is more or less ignored, we'll see how we want
   // to procede with that in the future. Here we make the starfield.
