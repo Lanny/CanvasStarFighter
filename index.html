@@ -44,11 +44,43 @@
           <td><input type="text" id="fighter_count" value="5"></td>
         </tr>
         <tr>
+          <td>Carrier Spawn Interval</td>
+          <td><input type="text" id="carrier_spawn_time" value="3"></td>
+        <tr>
+          <td>Air Friction</td>
+          <td><input type="text" id="air_friction" value="0.2"></td>
+        </tr>
+        <tr>
+          <td>Number of Stars</td>
+          <td><input type="text" id="star_count" value="5000"></td>
+        </tr>
+        <tr>
+          <td>Map Width</td>
+          <td><input type="text" id="X_BOUNDRY" value="10000"></td>
+        </tr>
+        <tr>
+          <td>Map Height</td>
+          <td><input type="text" id="Y_BOUNDRY" value="10000"></td>
+        </tr>
+        <tr>
           <td>Developer mode?</td>
           <td><input type="checkbox" id="dev_mode" checked="checked"></td>
         </tr>
         <tr>
-          <td><button id="start_button">Start</button></td>
+          <td>Draw hit circles?</td>
+          <td><input type="checkbox" id="draw_hit_circles"></td>
+        <tr>
+          <td>
+            <button id="start_button">Start</button>
+            <button onClick="(function(){
+                              document.getElementById('astroid_count').value = 0;
+                              document.getElementById('fighter_count').value = 0;
+                              document.getElementById('carrier_spawn_time').value = 0;
+                              })()">
+            Sandbox</button>
+
+
+          </td>
         </tr>
       </table>
     </div>
