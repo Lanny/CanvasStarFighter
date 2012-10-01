@@ -44,6 +44,9 @@
           <td><input type="text" id="fighter_count" value="5"></td>
         </tr>
         <tr>
+          <td>Carrier Spawn Interval</td>
+          <td><input type="text" id="carrier_spawn_time" value="3"></td>
+        <tr>
           <td>Air Friction</td>
           <td><input type="text" id="air_friction" value="0.2"></td>
         </tr>
@@ -72,6 +75,7 @@
             <button onClick="(function(){
                               document.getElementById('astroid_count').value = 0;
                               document.getElementById('fighter_count').value = 0;
+                              document.getElementById('carrier_spawn_time').value = 0;
                               })()">
             Sandbox</button>
 

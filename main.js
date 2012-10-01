@@ -5,6 +5,7 @@ NUMBER_OF_STARS = 5000 // Number of stars to simultaniously track
 BULLET_VELOCITY = 500 // Pixels per second that a conventional fighter bullet travels
 CONVERSION_CORE_WARMUP_TIME = 500 // Time in milliseconds that it takes to convert momentum
 FIGHTER_TARGETING_DISTANCE_SQUARED = Math.pow(1000, 2) // Distance that fighters have to be from their target before firing
+CARRIER_SPAWN_TIME = 3 * 1000 // Time between fighter spawns per carrier
 X_BOUNDRY = 5000 // Size of the game, passing beyond this distance from 0,0 is lethal
 Y_BOUNDRY = 5000 // Also it's marked with a big red line ;)
 DRAW_HIT_CIRCLES = false // Draw hit circles for movers
@@ -87,7 +88,7 @@ function physMover() {
   this.colRadius = 0
   this.colType = 'env'
 
-  this.additionalUpdate = function() {return}
+  this.additionalUpdate = function() {}
 
   this.update = function() {
     this.additionalUpdate()
@@ -150,19 +151,48 @@ function enemyFighter() {
   this.lastShotFired = new Date().getTime()
   this.rateOfFire = 3000
   this.target = player
+  this.searchDistance = 300
+  this.thingsToRunFrom = null
+
+  this.callMeWhenYouFoundSomethingYouGraveySuckingPigDog = function(foundItem) {
+    if (foundItem.gameType == 'environmental' || foundItem.gameType == 'enemy_ship') {
+      this.thingsToRunFrom = foundItem
+    }
+ }
 
   this.additionalUpdate = function() {
-    // Point the fighter at the player
-    // Find the cartesian distance
-    var deltaX = this.target.xPos - this.xPos
-    var deltaY = this.target.yPos - this.yPos
+    if (this.thingsToRunFrom) {
+      // Will eventually be an item in array kind of thing
+      var runTarget = this.thingsToRunFrom
 
-    this.rotation = Math.atan2(deltaY, deltaX)
-    
-    if (!(tickCount % 40)) {
-      if (Math.pow(deltaX, 2) + Math.pow(deltaY, 2) < FIGHTER_TARGETING_DISTANCE_SQUARED) {
-        if ((new Date().getTime() - this.lastShotFired ) > this.rateOfFire) {
-          this.shoot()
+      var deltaX = runTarget.xPos - this.xPos
+      var deltaY = runTarget.yPos - this.yPos
+
+      // Don't want to run forever!
+      if (Math.pow(deltaX + deltaY, 2) > Math.pow(this.searchDistance, 2)) {
+        this.thingsToRunFrom = null
+        return
+      }
+
+      // antiAngle, yeah, that's totally a thing...
+      var antiAngle = Math.atan2(deltaY, deltaX)
+
+      // Negative reciprocal, right? right? Please be right
+      this.rotation = antiAngle + Math.PI
+    }
+    else {
+      // Point the fighter at the player
+      // Find the cartesian distance
+      var deltaX = this.target.xPos - this.xPos
+      var deltaY = this.target.yPos - this.yPos
+
+      this.rotation = Math.atan2(deltaY, deltaX)
+      
+      if (!(tickCount % 40)) {
+        if (Math.pow(deltaX, 2) + Math.pow(deltaY, 2) < FIGHTER_TARGETING_DISTANCE_SQUARED) {
+          if ((new Date().getTime() - this.lastShotFired ) > this.rateOfFire) {
+            this.shoot()
+          }
         }
       }
     }
@@ -211,6 +241,9 @@ function SquareDroid() {
   this.colRadius = 30
   this.rotationalVelocity = 2
 
+  // Apparenty we have "game types" now. Whatever that means.
+  this.gameType = "environmental"
+
   this.geometryDraw = function() {
     // Do the actual drawing
     ctx.beginPath()
@@ -226,6 +259,24 @@ function SquareDroid() {
 
   this.collide = function(target) {
     // Let's make this baby bounce!
+    if (target.colType == "boundry") {
+      var grossSpeed = Math.sqrt(Math.pow(this.xSpeed, 2) + Math.pow(this.ySpeed, 2))
+      var lineOfReflection = Math.atan2(target.ySpeed, target.xSpeed)
+      var thisSlope = Math.atan2(this.ySpeed, this.xSpeed)
+      var diff = lineOfReflection - thisSlope
+      var newSlope = lineOfReflection - Math.PI + diff
+      this.xSpeed = Math.cos(newSlope) * grossSpeed
+      this.ySpeed = Math.sin(newSlope) * grossSpeed
+    }
+
+    else {
+      var grossSpeed = Math.sqrt(Math.pow(this.xSpeed, 2) + Math.pow(this.ySpeed, 2))
+      var newSlope = Math.atan2(target.yPos - this.yPos, target.xPos - this.yPos) + Math.PI
+      this.xSpeed = Math.cos(newSlope) * grossSpeed
+      this.ySpeed = Math.sin(newSlope) * grossSpeed
+    }
+
+    /* Not quite sure what to make of this. If you need to push this out in a pich, go ahead and use this code.
     var grossSpeed = Math.sqrt(Math.pow(this.xSpeed, 2) + Math.pow(this.ySpeed, 2))
     var lineOfReflection = Math.atan2(target.ySpeed, target.xSpeed)
     var thisSlope = Math.atan2(this.ySpeed, this.xSpeed)
@@ -233,25 +284,97 @@ function SquareDroid() {
     var newSlope = lineOfReflection - Math.PI + diff
     this.xSpeed = Math.cos(newSlope) * grossSpeed
     this.ySpeed = Math.sin(newSlope) * grossSpeed
+    */
   }
 }
 SquareDroid.prototype = new LinearMover()
+
+function enemyCarrier() {
+  this.colType = 'complex'
+  this.colCircleArray = [[100,-20,40], [60,25,15], [0,0,50], [-90,0,50]]
+  this.colRadius = 145
+  this.lastFighterDeployed = new Date().getTime()
+  this.gameType = 'enemy_ship'
+
+  this.additionalUpdate = function() {
+    if (!(tickCount % 20)) {
+      // If we don't have a spawn time, carrier becomes passive
+      if (!CARRIER_SPAWN_TIME) return
+
+      // Otherwise check if enough time has passed. If it has then spawn a new fighter
+      if (new Date().getTime() - this.lastFighterDeployed > CARRIER_SPAWN_TIME) {
+        var insertionX = this.xPos + (Math.cos(this.rotation) * 140)
+        var insertionY = this.yPos + (Math.cos(this.rotation) * 140)
+        insertObject(enemyFighter, [insertionX, insertionY], 0, [0,0], 0)
+        this.lastFighterDeployed = new Date().getTime()
+      }
+    }
+  }
+
+  this.geometryDraw = function() {
+    ctx.beginPath()
+    ctx.moveTo(150, -50)
+    ctx.lineTo(150, -10)
+    ctx.lineTo(50, 50)
+    ctx.lineTo(20, 50)
+    ctx.lineTo(-120, 50)
+    ctx.lineTo(-140, 50)
+    ctx.lineTo(-140, 40)
+    ctx.lineTo(-130, 40)
+    ctx.lineTo(-130, 20)
+    ctx.lineTo(-140, 20)
+
+    // Now draw the other side
+    ctx.lineTo(-140, -20)
+    ctx.lineTo(-130, -20)
+    ctx.lineTo(-130, -40)
+    ctx.lineTo(-140, -40)
+    ctx.lineTo(-140, -50)
+    ctx.lineTo(-120, -50)
+    ctx.lineTo(-50, -50)
+    ctx.lineTo(10, -50)
+    ctx.lineTo(10, -30)
+    ctx.lineTo(50, -30)
+    ctx.lineTo(50, -50)
+    ctx.lineTo(150, -50)
+
+    ctx.strokeStyle = 'red'
+    ctx.stroke()
+  }
+}
+enemyCarrier.prototype = new LinearMover()
+
 
 function friendlyDreadnought() {
   this.colType = 'complex'
   this.colCircleArray = [[90,0,50], [0,0,50], [-90,0,50]]
   this.colRadius = 145
   this.gunRotation = 0
-  this.searchDistance = 500
+  this.searchDistance = 1000
+  this.target = null
 
   this.callMeWhenYouFoundSomethingYouGraveySuckingPigDog = function(foundItem) {
-    var deltaX = foundItem.xPos - this.xPos
-    var deltaY = foundItem.yPos - this.yPos
-
-    var rot = Math.atan2(deltaY, deltaX)
-
-    this.gunRotation = rot
+    if (foundItem == player) {
+      this.target = foundItem
+    }
   }
+
+  this.additionalUpdate = function() {
+    if (this.target) {
+      var deltaX = this.target.xPos - this.xPos
+      var deltaY = this.target.yPos - this.yPos
+
+      if (Math.pow(deltaX, 2) + Math.pow(deltaY, 2) > Math.pow(this.searchDistance, 2)) {
+        // Target has moved out of range
+        this.target = null
+        return
+      }
+
+      // Still here? Good, now aim at the target
+      this.gunRotation = Math.atan2(deltaY, deltaX)
+    }
+  }
+ 
 
   this.geometryDraw = function() {
     ctx.beginPath()
@@ -418,7 +541,6 @@ function Player() {
       ctx.strokeStyle = "red"
       ctx.stroke()
     }
- 
   }
 
   this.additionalDraw = function() {}
@@ -442,7 +564,6 @@ function Player() {
       var warmUpCompletion = ((new Date().getTime()) - this.conversionStarted ) / CONVERSION_CORE_WARMUP_TIME
 
       if (warmUpCompletion > 1) {
-        console.log('laaaaaaa')
         // Warmup done, let's rock :p
         this.xSpeed = Math.cos(this.rotation) * this.storedSpeed
         this.ySpeed = Math.sin(this.rotation) * this.storedSpeed
@@ -474,13 +595,29 @@ function Player() {
   }
 
   this.collide = function(type) {
+    // Might called twice becuase I'm a shitty coder
+    if (!keepOnTicking) return
+
     // We're dead, stop the game
     keepOnTicking = false
+
+    // Turn off game music and play our death tone ("death tone", that sounds badass)
+    document.getElementById('game_music').pause()
+    document.getElementById('death_music').play()
+    console.log('here')
 
     // And tell the player that it is so :
     ctx.font = "42px Verdana"
     ctx.fillStyle = "#FF0000"
-    ctx.fillText("You're dead dawg!", (canvas.width/2) - 200, canvas.height/2)
+    
+    var possibleText = ['You\'re a crying saucer',
+                        'Keep it extra terestri-real',
+                        'Looks like you spaced out']
+
+    var i = Math.floor(Math.random()*3)
+    var deathText = possibleText[i]
+
+    ctx.fillText(deathText, (canvas.width/2) - 200, canvas.height/2)
   }
 }
 
@@ -570,9 +707,11 @@ function tick() {
           item.collide(secondItem)
           secondItem.collide(item)
         }
-        if (item.searchDistance && item.searchDistance <= distance) {
-          item.callMeWhenYouFoundSomethingYouGraveySuckingPigDog(secondItem)
-        }
+      }
+
+      // Checked for collisions, now check for proximity if item needs it
+      if (item.searchDistance && item.searchDistance >= distance) {
+        item.callMeWhenYouFoundSomethingYouGraveySuckingPigDog(secondItem)
       }
     })
   })
@@ -614,6 +753,7 @@ function insertObject(object, loc, rot, vol, rotVol) {
 }
 
 function main(initCounts) {
+  document.getElementById('game_music').play()
   curTime = new Date()
 
   // init our player and bind input
@@ -666,11 +806,17 @@ function main(initCounts) {
   }
 
   for (var i = 0; i < initCounts.astroids; i++) {
-    insertObject(SquareDroid, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [(Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100], (Math.random() - 0.5) * 2 * Math.PI)
+    insertObject(SquareDroid, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [(Math.random() - 0.5) * 300, (Math.random() - 0.5) * 300], (Math.random() - 0.5) * 2 * Math.PI)
   }
   
   //Test code
-  dn = insertObject(friendlyDreadnought, [500,500], 0, [0,0], 0)
+  insertObject(enemyCarrier, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [0,0], 0)
+  insertObject(enemyCarrier, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [0,0], 0)
+  insertObject(friendlyDreadnought, [0,0], 0, [0,0], 0)
+
+  // Set up a sexy asteroid collision
+  insertObject(SquareDroid, [0,0], 0, [20,-20], 0)
+  insertObject(SquareDroid, [-500,500], 0, [100,-100], 50)
 
   //End test code
 
@@ -682,11 +828,26 @@ function main(initCounts) {
   tick()
 }
 
+function addAudio(sauce, id, loop) {
+  // Create a new audio element
+  var audio = document.createElement('audio')
+  audio.setAttribute('src', sauce)
+  audio.setAttribute('preload', 'auto')
+  audio.setAttribute('id', id)
+  if (loop) audio.loop = true
+
+  // And stick it into the DOM proper
+  document.body.appendChild(audio)
+  return audio
+}
+
 function start() {
   // Sizing etc.
   canvas = document.getElementById('primary_canvas')
   canvas.width = window.innerWidth
   canvas.height = window.innerHeight
+
+  // Precalculate these now because we'll be using them pretty often
   canvas.halfWidth = canvas.width/2
   canvas.halfHeight = canvas.height/2
   ctx = canvas.getContext('2d')
@@ -695,6 +856,14 @@ function start() {
   ctx.fillStyle = "rgba(0, 0, 0, 1)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // Start the music
+  var menu_music = addAudio('assets/audio/menu_music.mp3', 'menu_music', true)
+  menu_music.play()
+
+  // Preload our other music
+  addAudio('assets/audio/death.mp3', 'death_music', false)
+  addAudio('assets/audio/game_music.mp3', 'game_music', true)
+
   document.getElementById('start_button').onclick = function fireMain() {
     DEV_MODE = document.getElementById('dev_mode').checked
     DRAW_HIT_CIRCLES = document.getElementById('draw_hit_circles').checked
@@ -702,12 +871,14 @@ function start() {
     Y_BOUNDRY = document.getElementById('Y_BOUNDRY').value / 2
     NUMBER_OF_STARS = document.getElementById('star_count').value 
     GLOBAL_AIR_FRICTION = document.getElementById('air_friction').value 
+    CARRIER_SPAWN_TIME = document.getElementById('carrier_spawn_time').value * 1000
 
     var initCounts = {}
     initCounts.fighters = document.getElementById('fighter_count').value
     initCounts.astroids = document.getElementById('astroid_count').value
 
     document.body.removeChild(document.getElementById('optionsDiv'))
+    menu_music.pause()
     main(initCounts)
   }
 
