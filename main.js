@@ -741,6 +741,25 @@ function tick() {
 
 function insertObject(object, loc, rot, vol, rotVol) {
   var obj = new object()
+  // If this gets set to true, we have to try agains with a shift
+  var tryAgainFlag = false
+
+  // Check if our insertion position is clear, and do something about it if not
+  itemsToDraw.forEach(function(item, index, array) {
+    var distance = Math.sqrt(Math.pow(loc[0] - item.xPos, 2) + Math.pow(loc[1] - item.yPos, 2))
+
+    if (distance < obj.colRadius + item.colRadius) {
+      // Oh shit, let's try shifting up a little bit
+      tryAgainFlag = true
+    }
+  })
+
+  if (tryAgainFlag) {
+    insertObject(object, [loc[0], loc[1]+30], rot, vol, rotVol)
+    return
+  }
+
+  // Got here? Ok, we're clear to insert
   obj.xPos = loc[0]
   obj.yPos = loc[1]
   obj.rotation = rot
