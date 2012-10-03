@@ -3,6 +3,8 @@ ACCELERATION_FORCE = 200 // Pixles per second accelerated per second
 PLAYER_TURN_SPEED = 3 // Radians turned per second, basically pi but hoping to avoid float arithmatic
 NUMBER_OF_STARS = 5000 // Number of stars to simultaniously track
 BULLET_VELOCITY = 500 // Pixels per second that a conventional fighter bullet travels
+DREADNOUGHT_BULLET_VELOCITY = 1000 
+DREADNOUGHT_RATE_OF_FIRE = 1000 
 CONVERSION_CORE_WARMUP_TIME = 500 // Time in milliseconds that it takes to convert momentum
 FIGHTER_TARGETING_DISTANCE_SQUARED = Math.pow(1000, 2) // Distance that fighters have to be from their target before firing
 CARRIER_SPAWN_TIME = 3 * 1000 // Time between fighter spawns per carrier
@@ -137,15 +139,38 @@ function projectile() {
   this.collide = function(obj) {
     if (obj.colType == 'projectile') return
     var i = itemsToDraw.lastIndexOf(this)
-    itemsToDraw.splice(i, i) 
+    itemsToDraw.splice(i, 1) 
   }
 }
 projectile.prototype = new LinearMover()
- 
+
+function dreadnoughtProjectile() {
+  this.colType = 'projectile'
+  this.colRadius = 1
+
+  this.geometryDraw = function() {
+    ctx.beginPath()
+    ctx.lineTo(-20, 0)
+    ctx.lineTo(0, 0)
+    ctx.lineWidth = 1
+    ctx.strokeStyle = 'red'
+    ctx.stroke()
+  }
+
+  this.collide = function(obj) {
+    if (obj.colType == 'projectile' || obj.gameType == "friendly_ship") return
+    var i = itemsToDraw.lastIndexOf(this)
+    itemsToDraw.splice(i, 1) 
+  }
+}
+dreadnoughtProjectile.prototype = new LinearMover()
+
+
 
 function enemyFighter() {
   this.colRadius = 15
   this.colType = 'ship'
+  this.gameType = 'enemy_ship'
   this.acceleratoryPower = 100
   this.accelerating = true
   this.lastShotFired = new Date().getTime()
@@ -209,8 +234,8 @@ function enemyFighter() {
     // of the shooter because it's going to increase by next tic, and multiply that by time
     // passed. Could still backfire if this tick is significantly shorter than the next one
     // but we added a 5px buffer earlier so hopefully it'll work out.
-    shot.xPos = this.xPos + ((this.colRadius + 5) * cos) + ((this.xSpeed + (this.acceleratoryPower * cos)) * timePassed )
-    shot.yPos = this.yPos + ((this.colRadius + 5) * sin) + ((this.ySpeed + (this.acceleratoryPower * sin)) * timePassed )
+    shot.xPos = this.xPos + ((this.colRadius + 15) * cos) + ((this.xSpeed + (this.acceleratoryPower * cos)) * timePassed )
+    shot.yPos = this.yPos + ((this.colRadius + 15) * sin) + ((this.ySpeed + (this.acceleratoryPower * sin)) * timePassed )
     shot.xSpeed = BULLET_VELOCITY * cos
     shot.ySpeed = BULLET_VELOCITY * sin
     this.lastShotFired = new Date().getTime()
@@ -231,6 +256,11 @@ function enemyFighter() {
 
   this.collide = function(target) {
     induceExplosion(this)
+  }
+
+  this.isDead = function() {
+    // Plays on the fact that exploded fighters have a colRadius of 0. Kinda sneaky, but w/e
+    return !this.colRadius
   }
 }
 enemyFighter.prototype = new physMover()
@@ -275,16 +305,6 @@ function SquareDroid() {
       this.xSpeed = Math.cos(newSlope) * grossSpeed
       this.ySpeed = Math.sin(newSlope) * grossSpeed
     }
-
-    /* Not quite sure what to make of this. If you need to push this out in a pich, go ahead and use this code.
-    var grossSpeed = Math.sqrt(Math.pow(this.xSpeed, 2) + Math.pow(this.ySpeed, 2))
-    var lineOfReflection = Math.atan2(target.ySpeed, target.xSpeed)
-    var thisSlope = Math.atan2(this.ySpeed, this.xSpeed)
-    var diff = lineOfReflection - thisSlope
-    var newSlope = lineOfReflection - Math.PI + diff
-    this.xSpeed = Math.cos(newSlope) * grossSpeed
-    this.ySpeed = Math.sin(newSlope) * grossSpeed
-    */
   }
 }
 SquareDroid.prototype = new LinearMover()
@@ -352,19 +372,23 @@ function friendlyDreadnought() {
   this.gunRotation = 0
   this.searchDistance = 1000
   this.target = null
+  this.lastShotFired = new Date().getTime()
+  this.rateOfFire = DREADNOUGHT_RATE_OF_FIRE
+  this.gameType = 'friendly_ship'
 
   this.callMeWhenYouFoundSomethingYouGraveySuckingPigDog = function(foundItem) {
-    if (foundItem == player) {
+    // Holy christ this is an ugly line
+    if (foundItem.gameType == 'enemy_ship' && this.target == null) {
       this.target = foundItem
     }
   }
 
   this.additionalUpdate = function() {
     if (this.target) {
-      var deltaX = this.target.xPos - this.xPos
-      var deltaY = this.target.yPos - this.yPos
+      var deltaX = this.target.xPos - (this.xPos + Math.cos(this.rotation) * 90)
+      var deltaY = this.target.yPos - (this.yPos + Math.sin(this.rotation) * 90)
 
-      if (Math.pow(deltaX, 2) + Math.pow(deltaY, 2) > Math.pow(this.searchDistance, 2)) {
+      if (Math.pow(deltaX, 2) + Math.pow(deltaY, 2) > Math.pow(this.searchDistance, 2) || this.target.isDead()) {
         // Target has moved out of range
         this.target = null
         return
@@ -372,9 +396,29 @@ function friendlyDreadnought() {
 
       // Still here? Good, now aim at the target
       this.gunRotation = Math.atan2(deltaY, deltaX)
+
+      // And if we're clear to do so, fire on those mofos
+      if (!(tickCount % 40)) {
+        if ((new Date().getTime() - this.lastShotFired ) > this.rateOfFire) {
+          this.shoot()
+        }
+      }
     }
   }
- 
+
+  this.shoot = function() {
+    var shot = new dreadnoughtProjectile()
+    shot.rotation = this.gunRotation
+    var cos = Math.cos(shot.rotation)
+    var sin = Math.sin(shot.rotation)
+
+    shot.xPos = this.xPos + Math.cos(this.rotation) * 90
+    shot.yPos = this.yPos + Math.sin(this.rotation) * 90
+    shot.xSpeed = DREADNOUGHT_BULLET_VELOCITY * cos
+    shot.ySpeed = DREADNOUGHT_BULLET_VELOCITY * sin
+    this.lastShotFired = new Date().getTime()
+    itemsToDraw.push(shot)
+  }
 
   this.geometryDraw = function() {
     ctx.beginPath()
@@ -452,7 +496,7 @@ function induceExplosion(target) {
     var percentComplete = (new Date().getTime() - this.explosionStartTime.getTime()) / this.explosionTime
     if (percentComplete > 1) {
       i = itemsToDraw.lastIndexOf(this)
-      itemsToDraw.splice(i, i) 
+      itemsToDraw.splice(i, 1) 
     }
     this.explosionRadius = this.maxExplosionRadius * percentComplete
   }
@@ -549,7 +593,7 @@ function Player() {
   this.activateConversionCore = function() {
     // If we've already activated a conversion we shouldn't do it again
     // (Fuck javascript and its broken keydown even)
-    if (this.ignoreConversion) {console.log(this.ignoreConversion);return}
+    if (this.ignoreConversion) {return}
       
     this.conversionStarted = new Date().getTime()
     this.conversionEffectRadius = 75
@@ -587,7 +631,6 @@ function Player() {
   }
 
   this.deactivateConversionCore = function() {
-    console.log('deactivated')
     this.additionalDraw = function() {}
     this.additionalUpdate = function() {}
     this.conversionEffectRadius = 0
@@ -604,7 +647,6 @@ function Player() {
     // Turn off game music and play our death tone ("death tone", that sounds badass)
     document.getElementById('game_music').pause()
     document.getElementById('death_music').play()
-    console.log('here')
 
     // And tell the player that it is so :
     ctx.font = "42px Verdana"
@@ -898,8 +940,203 @@ function start() {
 
     document.body.removeChild(document.getElementById('optionsDiv'))
     menu_music.pause()
+    // End the intro screen animation
+    introKeepOnTicking = false
     main(initCounts)
   }
 
-  window.addEventListener('keypress', function(e) {if (e.keycode == 32) fireMain()})
+  // Set up and engage the intro screen animation
+  // Ugh, this thing is a fucking mess. At least it's gone once the game starts
+  starField = []
+  introKeepOnTicking = true
+  pathFont = { 'A' : [
+               [0,0,'m'],
+               [0,70,'l'],
+               [30,70,'l'],
+               [30,0,'l'],
+               [0,0,'l'],
+               [15,70,'m'],
+               [15,40,'l'],
+               [15,30,'m'],
+               [15,20,'l']],
+  
+               'B' : [
+               [0,0,'m'],
+               [0,70,'l'],
+               [30,70,'l'],
+               [30,0,'l'],
+               [0,0,'l'],
+               [30,35,'m'],
+               [15,35,'l'],
+               [15,10,'m'],
+               [15,25,'l'],
+               [15,45,'m'],
+               [15,60,'l']],
+
+               'D' : [
+               [0,0,'m'],
+               [0,70,'l'],
+               [20,70,'l'],
+               [30,60,'l'],
+               [30,10,'l'],
+               [20,0,'l'],
+               [0,0,'l'],
+               [15,20,'m'],
+               [15,50,'l']],
+
+               'E' : [
+               [0,0,'m'],
+               [0,70,'l'],
+               [30,70,'l'],
+               [30,0,'m'],
+               [0,0,'l'],
+               [30,25,'m'],
+               [15,25,'l'],
+               [30,45,'m'],
+               [15,45,'l'],
+               [30,0,'m'],
+               [30,25,'l'],
+               [25,25,'m'],
+               [25,45,'l'],
+               [30,45,'m'],
+               [30,70,'l']],
+
+               'O' : [
+               [0,0,'m'],
+               [0,70,'l'],
+               [30,70,'l'],
+               [30,0,'l'],
+               [0,0,'l'],
+               [15,20,'m'],
+               [15,50,'l']],
+
+               'I' : [
+               [0,0,'m'],
+               [0,20,'l'],
+               [7.5,20,'l'],
+               [7.5,50,'l'],
+               [0,50,'l'],
+               [0,70,'l'],
+               [30,70,'l'],
+               [30,50,'l'],
+               [22.5,50,'l'],
+               [22.5,20,'l'],
+               [30,20,'l'],
+               [30,0,'l'],
+               [0,0,'l']],
+
+               'R' : [
+               [0,0,'m'],
+               [0,70,'l'],
+               [30,70,'l'],
+               [30,10,'l'],
+               [20,0,'l'],
+               [0,0,'l'],
+               [15,70,'m'],
+               [15,45,'l'],
+               [10,35,'l'],
+               [15,25,'m'],
+               [15,15,'l']],
+
+               'S' : [
+               [0,0,'m'],
+               [0,70,'l'],
+               [30,70,'l'],
+               [30,0,'l'],
+               [0,0,'l'],
+               [30,20,'m'],
+               [15,20,'l'],
+               [15,30,'l'],
+               [0,50,'m'],
+               [15,50,'l'],],
+
+               'T' : [
+               [0,0,'m'],
+               [0,20,'l'],
+               [7.5,20,'l'],
+               [7.5,70,'l'],
+               [22.5,70,'l'],
+               [22.5,20,'l'],
+               [30,20,'l'],
+               [30,0,'l'],
+               [0,0,'l']],
+
+               'Dash' : [
+               [0,25,'m'],
+               [0,45,'l'],
+               [30,45,'l'],
+               [30,25,'l'],
+               [0,25,'l']
+               ]
+             }
+  textCoOrds = [pathFont.B, pathFont.A, pathFont.D, [], pathFont.A, pathFont.S, pathFont.S, pathFont.Dash, pathFont.T, pathFont.E, pathFont.R, pathFont.O, pathFont.I, pathFont.D, pathFont.S]
+
+  function addIntroScreenStar() {
+    var newStar = [(Math.random() - 0.5) * (canvas.width / 4),
+                   (Math.random() - 0.5) * (canvas.height / 4),
+                   0.1,
+                   new Date().getTime()]
+    starField.push(newStar)
+  }
+
+  for (var i = 0; i < 100; i++) { addIntroScreenStar() }
+
+  // Adjust our times so stars don't come in bursts
+  var thisTime = new Date().getTime()
+  for (var i = 0; i < 100; i++) { 
+    starField[i][3] -= Math.random() * 5000
+    starField[i][2] = (thisTime - starField[i][3]) / 1000
+  }
+
+  (function initalScreenTick() {
+    if (!introKeepOnTicking) return
+    var thisTime = new Date().getTime()
+
+    ctx.fillStyle = "rgba(0, 0, 0, 1)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    starField.forEach(function(star, index, array) {
+      for (var i = 1; i < 7; i++) {
+        var x = (star[0] * (star[2] - (i/40))) + canvas.halfWidth
+        var y = (star[1] * (star[2] - (i/40))) + canvas.halfHeight
+        ctx.beginPath()
+        ctx.arc(x, y, 1, 0, 2*Math.PI, 1)
+        var shade = 255 - i * 20
+        ctx.fillStyle = 'rgb(' + shade + ',' + shade + ',' + shade + ')'
+        ctx.fill()
+
+        star[2] = (thisTime - star[3]) / 1000
+      }
+
+      if (star[2] > 5) {
+        var i = starField.indexOf(star)
+        starField.splice(i,1)
+        addIntroScreenStar()
+      }
+    })
+
+    // Draw out the logo thing!
+    ctx.save()
+    ctx.translate(canvas.halfWidth - ((textCoOrds.length * 35)/2) - 35,50)
+    for (var letterIndex = 0; letterIndex < textCoOrds.length; letterIndex++) {
+      ctx.translate(35,0)
+      ctx.beginPath()
+
+      for (var motionIndex = 0; motionIndex < textCoOrds[letterIndex].length; motionIndex++) {
+        var motion = textCoOrds[letterIndex][motionIndex] 
+        if (motion[2] == 'l') {
+          ctx.lineTo(motion[0], motion[1]);
+        }
+        else if (motion[2] == 'm') {
+          ctx.moveTo(motion[0], motion[1])
+        }
+      }
+      ctx.strokeStyle = 'white'
+      ctx.strokeWidth = 2
+      ctx.stroke()
+    }
+    ctx.restore()
+
+    setTimeout(initalScreenTick, 5)
+  })()
 }
