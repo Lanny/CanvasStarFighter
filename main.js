@@ -8,6 +8,7 @@ DREADNOUGHT_RATE_OF_FIRE = 1000
 CONVERSION_CORE_WARMUP_TIME = 500 // Time in milliseconds that it takes to convert momentum
 FIGHTER_TARGETING_DISTANCE_SQUARED = Math.pow(1000, 2) // Distance that fighters have to be from their target before firing
 CARRIER_SPAWN_TIME = 3 * 1000 // Time between fighter spawns per carrier
+CARRIER_ACQUISITION_TIME = 5 * 1000 // Time it takes for the player to scout a carrier
 X_BOUNDRY = 5000 // Size of the game, passing beyond this distance from 0,0 is lethal
 Y_BOUNDRY = 5000 // Also it's marked with a big red line ;)
 DRAW_HIT_CIRCLES = false // Draw hit circles for movers
@@ -246,20 +247,6 @@ pathFont = {
   [30,70,'l'],
   [0,0,'l']
   ],
-
-  /*'N' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [15,70,'l'],
-  [15,35,'l'],
-  [20,70,'l'],
-  [30,70,'l'],
-  [30,0,'l'],
-  [15,0,'l'],
-  [15,35,'l'],
-  [10,0,'l'],
-  [0,0,'l']
-  ],*/
 
   'O' : [
   [0,0,'m'],
@@ -516,8 +503,6 @@ function dreadnoughtProjectile() {
 }
 dreadnoughtProjectile.prototype = new LinearMover()
 
-
-
 function enemyFighter() {
   this.colRadius = 15
   this.colType = 'ship'
@@ -666,23 +651,52 @@ function enemyCarrier() {
   this.colRadius = 145
   this.lastFighterDeployed = new Date().getTime()
   this.gameType = 'enemy_ship'
+  this.initialAcquisitionTime = null
+
+  this.tertiaryDraw = function() {}
 
   this.additionalUpdate = function() {
     if (!(tickCount % 20)) {
-      // If we don't have a spawn time, carrier becomes passive
-      if (!CARRIER_SPAWN_TIME) return
-
-      // Otherwise check if enough time has passed. If it has then spawn a new fighter
-      if (new Date().getTime() - this.lastFighterDeployed > CARRIER_SPAWN_TIME) {
+      // Check if enough time has passed. If it has then spawn a new fighter.
+      if (new Date().getTime() - this.lastFighterDeployed > CARRIER_SPAWN_TIME && CARRIER_SPAWN_TIME) {
         var insertionX = this.xPos + (Math.cos(this.rotation) * 140)
         var insertionY = this.yPos + (Math.cos(this.rotation) * 140)
         insertObject(enemyFighter, [insertionX, insertionY], 0, [0,0], 0)
         this.lastFighterDeployed = new Date().getTime()
       }
+
+      // While we're here let's check if the player is within range for target acquisition
+      console.log(this.initialAcquisitionTime)
+      if (!this.initialAcquisitionTime && Math.pow(this.xPos - player.xPos, 2) + Math.pow(this.yPos - player.yPos, 2) < Math.pow(600,2)) {
+        // Player has just moved within range
+        this.initialAcquisitionTime = new Date().getTime()
+
+        // Attach our additional draw function for the circle
+        this.tertiaryDraw = function() {
+          var radius = 600 - 600 * ((new Date().getTime() - this.initialAcquisitionTime) / CARRIER_ACQUISITION_TIME)
+
+          ctx.beginPath()
+          ctx.arc(0, 0, radius, 0, Math.PI, 1)
+          ctx.arc(0, 0, radius, Math.PI+1, 1, 1)
+          //ctx.arc(0, 0, radius, Math.PI*1.5 + 0.5, Math.PI*2, 1)
+          ctx.strokeWidth = 5
+          ctx.strokeStyle = 'magenta'
+          ctx.stroke()
+        }
+      }
+
+      // If the target has been acquired but is now outside of range, cancle our acquisition
+      else if (this.initialAcquisitionTime && Math.pow(this.xPos - player.xPos, 2) + Math.pow(this.yPos - player.yPos) > Math.pow(600, 2)) {
+        this.initialAcquisitionTime = null
+        this.tertiaryDraw = function() {}
+      }
     }
   }
 
   this.geometryDraw = function() {
+    // This will draw our acquisition circle if applicable
+    this.tertiaryDraw()
+
     ctx.beginPath()
     ctx.moveTo(150, -50)
     ctx.lineTo(150, -10)
@@ -714,7 +728,6 @@ function enemyCarrier() {
   }
 }
 enemyCarrier.prototype = new LinearMover()
-
 
 function friendlyDreadnought() {
   this.colType = 'complex'
@@ -1221,16 +1234,22 @@ function main(initCounts) {
     insertObject(SquareDroid, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [(Math.random() - 0.5) * 300, (Math.random() - 0.5) * 300], (Math.random() - 0.5) * 2 * Math.PI)
   }
   
-  //Test code
-  insertObject(enemyCarrier, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [0,0], 0)
-  insertObject(enemyCarrier, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [0,0], 0)
+  // Set up our capital ships
+  for (var i = 0; i < 0; i++) {
+    // Insert our carrier, and if it's within the dreadnought's search radius, move out
+    var carrier = insertObject(enemyCarrier, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [0,0], 0)
+    while (Math.sqrt(Math.pow(carrier.xPos, 2) + Math.pow(carrier.yPos)) < 1000) carrier.yPos += 100
+  }
+
+  insertObject(enemyCarrier, [3000, 0], 0, [0,0], 0)
+
   insertObject(friendlyDreadnought, [0,0], 0, [0,0], 0)
 
+  /*
   // Set up a sexy asteroid collision
   insertObject(SquareDroid, [0,0], 0, [20,-20], 0)
   insertObject(SquareDroid, [-500,500], 0, [100,-100], 50)
-
-  //End test code
+  */
 
   FPSCounter = { size : 0,
                  avg : 0,
@@ -1295,10 +1314,38 @@ function start() {
       document.body.removeChild(mDivs[i])
     }
 
+    localStorage.gameOptions = JSON.stringify({
+      'dev_mode' : document.getElementById('dev_mode').checked,
+      'draw_hit_circles' : document.getElementById('draw_hit_circles').checked,
+      'X_BOUNDRY' : document.getElementById('X_BOUNDRY').value,
+      'Y_BOUNDRY' : document.getElementById('Y_BOUNDRY').value,
+      'star_count' : document.getElementById('star_count').value,
+      'air_friction' : document.getElementById('air_friction').value, 
+      'carrier_spawn_time' : document.getElementById('carrier_spawn_time').value,
+      'fighter_count' : document.getElementById('fighter_count').value,
+      'astroid_count' : document.getElementById('astroid_count').value
+    })
+
     menu_music.pause()
     // End the intro screen animation
     introKeepOnTicking = false
     main(initCounts)
+  }
+
+  // Set up our options div based on previous play if that data is available
+  if (localStorage.gameOptions) {
+    var gameOptions = JSON.parse(localStorage.gameOptions)
+    for (option in gameOptions) {
+      console.log(gameOptions)
+      console.log(option)
+      // Doing this because checkboxes and text fields need to be handled differently
+      if (gameOptions[option] === true || gameOptions[option] === false) {
+        document.getElementById(option).checked = gameOptions[option]
+      } 
+      else {
+        document.getElementById(option).value = gameOptions[option]
+      }
+    }
   }
 
   document.getElementById('optionsButton').onclick = function() {
@@ -1319,8 +1366,18 @@ function start() {
     document.getElementById('initDiv').style.display = ''
   }
 
+  // Adjust volume accoring to what is in local storage
+  var audio = document.getElementsByTagName('audio')
+  for (var i = 0; i < audio.length; i++) {
+    audio[i].volume = localStorage.volume
+  }
+  
+  // And change the button image if need be
+  if (localStorage.volume == 0) document.getElementById('mute_button').src = "assets/img/sound_off.png"
+
   document.getElementById('mute_button').onclick = function() {
     if (this.src.match(/.+\/sound_on\.png/)) {
+      localStorage.volume = 0
       this.src = "assets/img/sound_off.png"
       var audio = document.getElementsByTagName('audio')
       for (var i = 0; i < audio.length; i++) {
@@ -1328,6 +1385,7 @@ function start() {
       }
     }
     else {
+      localStorage.volume = 1
       this.src = "assets/img/sound_on.png"
       var audio = document.getElementsByTagName('audio')
       for (var i = 0; i < audio.length; i++) {
