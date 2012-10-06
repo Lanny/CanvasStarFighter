@@ -40,6 +40,357 @@ function drawHitCircle(target) {
   }
 }
 
+function floatyText(text) {
+  this.initTime = new Date().getTime()
+  this.duration = 5000
+  this.text = stringToPathList(text)
+
+  this.draw = function() {
+    ctx.save()
+    ctx.translate(0,this.yPos)
+    drawFromPathList(this.text)
+    ctx.restore()
+  }
+
+  this.update = function() {
+    this.yPos = canvas.height - (((new Date().getTime() - this.initTime) / this.duration) * canvas.height)
+    if (this.yPos + 70 < 0) otherThingsToDraw.splice(otherThingsToDraw.indexOf(this),1)
+  }
+}
+
+function drawFromPathList(pathList) {
+  ctx.translate(canvas.halfWidth - ((pathList.length * 35)/2) - 35,50)
+  for (var letterIndex = 0; letterIndex < pathList.length; letterIndex++) {
+    ctx.translate(35,0)
+    ctx.beginPath()
+
+    for (var motionIndex = 0; motionIndex < pathList[letterIndex].length; motionIndex++) {
+      var motion = pathList[letterIndex][motionIndex] 
+      if (motion[2] == 'l') {
+        //ctx.lineTo(motion[0] + (Math.random() * 10), motion[1] + (Math.random() * 10))
+        ctx.lineTo(motion[0], motion[1])
+      }
+      else if (motion[2] == 'm') {
+        //ctx.moveTo(motion[0] + (Math.random() * 10), motion[1] + (Math.random() * 10))
+        ctx.moveTo(motion[0], motion[1])
+      }
+    }
+    //ctx.strokeStyle = '#' + Math.floor(Math.random() * 10) + Math.floor(Math.random()*10) + Math.floor(Math.random()*10) 
+    ctx.strokeStyle = 'white'
+    ctx.strokeWidth = 2
+    ctx.stroke()
+  }
+}
+
+pathFont = { 
+  'A' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [30,70,'l'],
+  [30,0,'l'],
+  [0,0,'l'],
+  [15,70,'m'],
+  [15,40,'l'],
+  [15,30,'m'],
+  [15,20,'l']],
+
+  'B' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [30,70,'l'],
+  [30,0,'l'],
+  [0,0,'l'],
+  [30,35,'m'],
+  [15,35,'l'],
+  [15,10,'m'],
+  [15,25,'l'],
+  [15,45,'m'],
+  [15,60,'l']],
+
+  'C' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [30,70,'l'],
+  [30,0,'l'],
+  [0,0,'l'],
+  [30,35,'m'],
+  [15,35,'l']
+  ],
+
+  'D' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [20,70,'l'],
+  [30,60,'l'],
+  [30,10,'l'],
+  [20,0,'l'],
+  [0,0,'l'],
+  [15,20,'m'],
+  [15,50,'l']],
+
+  'E' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [30,70,'l'],
+  [30,0,'m'],
+  [0,0,'l'],
+  [30,25,'m'],
+  [15,25,'l'],
+  [30,45,'m'],
+  [15,45,'l'],
+  [30,0,'m'],
+  [30,25,'l'],
+  [25,25,'m'],
+  [25,45,'l'],
+  [30,45,'m'],
+  [30,70,'l']],
+
+  'F' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [15,70,'l'],
+  [15,45,'l'],
+  [30,0,'m'],
+  [0,0,'l'],
+  [30,25,'m'],
+  [15,25,'l'],
+  [25,45,'m'],
+  [15,45,'l'],
+  [30,0,'m'],
+  [30,25,'l'],
+  [25,25,'m'],
+  [25,45,'l']],
+
+  'G' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [30,70,'l'],
+  [30,0,'l'],
+  [0,0,'l'],
+  [30,35,'m'],
+  [10,35,'l'],
+  [10,50,'l'],
+  [20,50,'l'],
+  [15,50,'m'],
+  [15,60,'l'],
+  [15,35,'m'],
+  [15,15,'l']
+  ],
+
+  'H' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [30,70,'l'],
+  [30,0,'l'],
+  [0,0,'l'],
+  [15,0,'m'],
+  [15,25,'l'],
+  [15,70,'m'],
+  [15,50,'l']],
+
+  'J' : [
+  [0,0,'m'],
+  [0,15,'l'],
+  [15,15,'l'],
+  [15,55,'l'],
+  [15,40,'m'],
+  [0,40,'l'],
+  [0,70,'l'],
+  [30,70,'l'],
+  [30,0,'l'],
+  [0,0,'l']],
+
+  'K' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [15,70,'l'],
+  [15,55,'l'],
+  [20,70,'l'],
+  [30,70,'l'],
+  [30,45,'l'],
+  [20,35,'l'],
+  [30,25,'l'],
+  [30,0,'l'],
+  [20,0,'l'],
+  [15,15,'l'],
+  [15,0,'l'],
+  [0,0,'l']],
+
+  'L' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [30,70,'l'],
+  [30,55,'l'],
+  [15,55,'l'],
+  [15,0,'l'],
+  [0,0,'l']],
+
+  'M' : [
+  [10,0,'m'],
+  [0,0,'l'],
+  [0,70,'l'],
+  [30,70,'l'],
+  [30,0,'l'],
+  [20,0,'l'],
+  [15,5,'l'],
+  [10,0,'l'],
+  [15,70,'m'],
+  [15,20,'l']],
+
+  'N' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [15,70,'l'],
+  [15,0,'l'],
+  [30,0,'l'],
+  [30,70,'l'],
+  [0,0,'l']
+  ],
+
+  /*'N' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [15,70,'l'],
+  [15,35,'l'],
+  [20,70,'l'],
+  [30,70,'l'],
+  [30,0,'l'],
+  [15,0,'l'],
+  [15,35,'l'],
+  [10,0,'l'],
+  [0,0,'l']
+  ],*/
+
+  'O' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [30,70,'l'],
+  [30,0,'l'],
+  [0,0,'l'],
+  [15,20,'m'],
+  [15,50,'l']],
+
+  'P' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [15,70,'l'],
+  [15,35,'l'],
+  [20,35,'l'],
+  [30,25,'l'],
+  [30,10,'l'],
+  [20,0,'l'],
+  [0,0,'l'],
+  [15,10,'m'],
+  [15,25,'l']],
+
+  'I' : [
+  [0,0,'m'],
+  [0,20,'l'],
+  [7.5,20,'l'],
+  [7.5,50,'l'],
+  [0,50,'l'],
+  [0,70,'l'],
+  [30,70,'l'],
+  [30,50,'l'],
+  [22.5,50,'l'],
+  [22.5,20,'l'],
+  [30,20,'l'],
+  [30,0,'l'],
+  [0,0,'l']],
+
+  'R' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [30,70,'l'],
+  [30,30,'l'],
+  [25,25,'l'],
+  [30,20,'l'],
+  [30,0,'l'],
+  [20,0,'l'],
+  [0,0,'l'],
+  [15,70,'m'],
+  [15,45,'l'],
+  [10,35,'l'],
+  [15,25,'m'],
+  [15,15,'l']],
+
+  'S' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [30,70,'l'],
+  [30,0,'l'],
+  [0,0,'l'],
+  [30,20,'m'],
+  [15,20,'l'],
+  [15,30,'l'],
+  [0,50,'m'],
+  [15,50,'l'],],
+
+  'T' : [
+  [0,0,'m'],
+  [0,20,'l'],
+  [7.5,20,'l'],
+  [7.5,70,'l'],
+  [22.5,70,'l'],
+  [22.5,20,'l'],
+  [30,20,'l'],
+  [30,0,'l'],
+  [0,0,'l']],
+
+  'U' : [
+  [0,0,'m'],
+  [0,70,'l'],
+  [30,70,'l'],
+  [30,0,'l'],
+  [0,0,'l'],
+  [15,0,'m'],
+  [15,55,'l']],
+
+  'Y' : [
+  [0,0,'m'],
+  [10,0,'l'],
+  [15,5,'l'],
+  [20,0,'l'],
+  [30,0,'l'],
+  [30,15,'l'],
+  [22.5,22.5,'l'],
+  [22.5,70,'l'],
+  [7.5,70,'l'],
+  [7.5,22.5,'l'],
+  [0,15,'l'],
+  [0,0,'l']],
+
+  '-' : [
+  [0,25,'m'],
+  [0,45,'l'],
+  [30,45,'l'],
+  [30,25,'l'],
+  [0,25,'l']],
+
+  ':' : [
+  [0,0,'m'],
+  [0,30,'l'],
+  [30,30,'l'],
+  [30,0,'l'],
+  [0,0,'l'],
+  [0,40,'m'],
+  [0,70,'l'],
+  [30,70,'l'],
+  [30,40,'l'],
+  [0,40,'l']],
+
+  ' ' : []
+}
+
+function stringToPathList(string) {
+  var foo = string.split('')
+  var returnArray = []
+  for (var i = 0; i < foo.length; i++) {
+    returnArray.push(pathFont[foo[i]])
+  }
+  return returnArray
+}
+
 function LinearMover() {
   this.xSpeed = 0
   this.ySpeed = 0
@@ -925,7 +1276,7 @@ function start() {
   addAudio('assets/audio/death.mp3', 'death_music', false)
   addAudio('assets/audio/game_music.mp3', 'game_music', true)
 
-  document.getElementById('start_button').onclick = function fireMain() {
+  document.getElementById('startButton').onclick = function fireMain() {
     DEV_MODE = document.getElementById('dev_mode').checked
     DRAW_HIT_CIRCLES = document.getElementById('draw_hit_circles').checked
     X_BOUNDRY = document.getElementById('X_BOUNDRY').value / 2
@@ -938,138 +1289,112 @@ function start() {
     initCounts.fighters = document.getElementById('fighter_count').value
     initCounts.astroids = document.getElementById('astroid_count').value
 
-    document.body.removeChild(document.getElementById('optionsDiv'))
+    // Remove all the major divs (options, init, and so on)
+    var mDivs = document.getElementsByClassName('major_div')
+    for (var i = 0; i < mDivs.length; i++) {
+      document.body.removeChild(mDivs[i])
+    }
+
     menu_music.pause()
     // End the intro screen animation
     introKeepOnTicking = false
     main(initCounts)
   }
 
+  document.getElementById('optionsButton').onclick = function() {
+    // Hide the main menu div, and bring up the options menu
+    document.getElementById('initDiv').style.display = 'none'
+    document.getElementById('optionsDiv').style.display = ''
+  }
+
+  document.getElementById('sandbox_button').onclick = function() {
+    document.getElementById('astroid_count').value = 0
+    document.getElementById('fighter_count').value = 0
+    document.getElementById('carrier_spawn_time').value = 0
+  }
+
+  document.getElementById('optionsToMenuButton').onclick = function() {
+    // Return from the options menu to the main menu
+    document.getElementById('optionsDiv').style.display = 'none'
+    document.getElementById('initDiv').style.display = ''
+  }
+
+  document.getElementById('mute_button').onclick = function() {
+    if (this.src.match(/.+\/sound_on\.png/)) {
+      this.src = "assets/img/sound_off.png"
+      var audio = document.getElementsByTagName('audio')
+      for (var i = 0; i < audio.length; i++) {
+        audio[i].volume = 0
+      }
+    }
+    else {
+      this.src = "assets/img/sound_on.png"
+      var audio = document.getElementsByTagName('audio')
+      for (var i = 0; i < audio.length; i++) {
+        audio[i].volume = 1
+      }
+    }
+  }
+
+  document.getElementById('creditsButton').onclick = function() {
+    // Hide the main div and set a bunch of events to fire off in due time
+    document.getElementById('initDiv').style.display = 'none'
+    drawLogo = false
+
+    otherThingsToDraw.push(new floatyText('BADASS MUSIC :'))
+
+    setTimeout(function() {
+      otherThingsToDraw.push(new floatyText('RYAN PALMER'))
+    }, 3000)
+
+    setTimeout(function() {
+      otherThingsToDraw.push(new floatyText('OTHER BADASS THINGS :'))
+    }, 6000)
+
+    setTimeout(function() {
+      otherThingsToDraw.push(new floatyText('RYAN JENKINS'))
+    }, 9000)
+
+    setTimeout(function() {
+      otherThingsToDraw.push(new floatyText('STUFF THAT ISNT BADASS :'))
+    }, 12000)
+
+    setTimeout(function() {
+      otherThingsToDraw.push(new floatyText('JUST KIDDING'))
+      console.log('herah')
+    }, 15000)
+
+    setTimeout(function() {
+      otherThingsToDraw.push(new floatyText('ITS ALL BADASS'))
+    }, 16000)
+
+    setTimeout(function() {
+      drawLogo = true
+      document.getElementById('initDiv').style.display = ''
+    }, 22000)
+  }
+
+  // Add our little "turn red on mouseover" effect to mm_buttons
+  var buttons = document.getElementsByClassName('mm_button')
+  
+  for (var i = 0; i < buttons.length; i++) {
+    var button = buttons[i]
+    button.addEventListener('mouseover', function() {
+      this.style['border-color'] = '#f00'
+    })
+
+    button.addEventListener('mouseout', function() {
+      this.style['border-color'] = '#fff'
+    })
+  }
+
   // Set up and engage the intro screen animation
   // Ugh, this thing is a fucking mess. At least it's gone once the game starts
   starField = []
+  otherThingsToDraw = []
   introKeepOnTicking = true
-  pathFont = { 'A' : [
-               [0,0,'m'],
-               [0,70,'l'],
-               [30,70,'l'],
-               [30,0,'l'],
-               [0,0,'l'],
-               [15,70,'m'],
-               [15,40,'l'],
-               [15,30,'m'],
-               [15,20,'l']],
-  
-               'B' : [
-               [0,0,'m'],
-               [0,70,'l'],
-               [30,70,'l'],
-               [30,0,'l'],
-               [0,0,'l'],
-               [30,35,'m'],
-               [15,35,'l'],
-               [15,10,'m'],
-               [15,25,'l'],
-               [15,45,'m'],
-               [15,60,'l']],
-
-               'D' : [
-               [0,0,'m'],
-               [0,70,'l'],
-               [20,70,'l'],
-               [30,60,'l'],
-               [30,10,'l'],
-               [20,0,'l'],
-               [0,0,'l'],
-               [15,20,'m'],
-               [15,50,'l']],
-
-               'E' : [
-               [0,0,'m'],
-               [0,70,'l'],
-               [30,70,'l'],
-               [30,0,'m'],
-               [0,0,'l'],
-               [30,25,'m'],
-               [15,25,'l'],
-               [30,45,'m'],
-               [15,45,'l'],
-               [30,0,'m'],
-               [30,25,'l'],
-               [25,25,'m'],
-               [25,45,'l'],
-               [30,45,'m'],
-               [30,70,'l']],
-
-               'O' : [
-               [0,0,'m'],
-               [0,70,'l'],
-               [30,70,'l'],
-               [30,0,'l'],
-               [0,0,'l'],
-               [15,20,'m'],
-               [15,50,'l']],
-
-               'I' : [
-               [0,0,'m'],
-               [0,20,'l'],
-               [7.5,20,'l'],
-               [7.5,50,'l'],
-               [0,50,'l'],
-               [0,70,'l'],
-               [30,70,'l'],
-               [30,50,'l'],
-               [22.5,50,'l'],
-               [22.5,20,'l'],
-               [30,20,'l'],
-               [30,0,'l'],
-               [0,0,'l']],
-
-               'R' : [
-               [0,0,'m'],
-               [0,70,'l'],
-               [30,70,'l'],
-               [30,10,'l'],
-               [20,0,'l'],
-               [0,0,'l'],
-               [15,70,'m'],
-               [15,45,'l'],
-               [10,35,'l'],
-               [15,25,'m'],
-               [15,15,'l']],
-
-               'S' : [
-               [0,0,'m'],
-               [0,70,'l'],
-               [30,70,'l'],
-               [30,0,'l'],
-               [0,0,'l'],
-               [30,20,'m'],
-               [15,20,'l'],
-               [15,30,'l'],
-               [0,50,'m'],
-               [15,50,'l'],],
-
-               'T' : [
-               [0,0,'m'],
-               [0,20,'l'],
-               [7.5,20,'l'],
-               [7.5,70,'l'],
-               [22.5,70,'l'],
-               [22.5,20,'l'],
-               [30,20,'l'],
-               [30,0,'l'],
-               [0,0,'l']],
-
-               'Dash' : [
-               [0,25,'m'],
-               [0,45,'l'],
-               [30,45,'l'],
-               [30,25,'l'],
-               [0,25,'l']
-               ]
-             }
-  textCoOrds = [pathFont.B, pathFont.A, pathFont.D, [], pathFont.A, pathFont.S, pathFont.S, pathFont.Dash, pathFont.T, pathFont.E, pathFont.R, pathFont.O, pathFont.I, pathFont.D, pathFont.S]
+  var drawLogo = true
+  logoPathList = stringToPathList('BAD ASS-TEROIDS')
 
   function addIntroScreenStar() {
     var newStar = [(Math.random() - 0.5) * (canvas.width / 4),
@@ -1116,26 +1441,17 @@ function start() {
     })
 
     // Draw out the logo thing!
-    ctx.save()
-    ctx.translate(canvas.halfWidth - ((textCoOrds.length * 35)/2) - 35,50)
-    for (var letterIndex = 0; letterIndex < textCoOrds.length; letterIndex++) {
-      ctx.translate(35,0)
-      ctx.beginPath()
-
-      for (var motionIndex = 0; motionIndex < textCoOrds[letterIndex].length; motionIndex++) {
-        var motion = textCoOrds[letterIndex][motionIndex] 
-        if (motion[2] == 'l') {
-          ctx.lineTo(motion[0], motion[1]);
-        }
-        else if (motion[2] == 'm') {
-          ctx.moveTo(motion[0], motion[1])
-        }
-      }
-      ctx.strokeStyle = 'white'
-      ctx.strokeWidth = 2
-      ctx.stroke()
+    if (drawLogo) {
+      ctx.save()
+      drawFromPathList(logoPathList)
+      ctx.restore()
     }
-    ctx.restore()
+
+    // Jenkins you fucking idiot, I hate you. "thing"? God damn son, god damn
+    otherThingsToDraw.forEach(function(thing, index, array) {
+      thing.update()
+      thing.draw()
+    })
 
     setTimeout(initalScreenTick, 5)
   })()
