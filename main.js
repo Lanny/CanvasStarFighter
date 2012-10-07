@@ -78,7 +78,7 @@ function drawFromPathList(pathList) {
     }
     //ctx.strokeStyle = '#' + Math.floor(Math.random() * 10) + Math.floor(Math.random()*10) + Math.floor(Math.random()*10) 
     ctx.strokeStyle = 'white'
-    ctx.strokeWidth = 2
+    ctx.lineWidth = 2
     ctx.stroke()
   }
 }
@@ -601,6 +601,18 @@ function enemyFighter() {
 }
 enemyFighter.prototype = new physMover()
 
+function lazerSpacer(x,y) {
+  this.xSpeed = 0
+  this.ySpeed = 0
+  this.colRadius = 1
+  this.xPos = x
+  this.yPos = y
+
+  this.draw = function() {}
+  this.update = function() {}
+  this.collide = function(obj) {}
+}
+
 function SquareDroid() {
   this.xSpeed = 20
   this.ySpeed = 20
@@ -652,6 +664,7 @@ function enemyCarrier() {
   this.lastFighterDeployed = new Date().getTime()
   this.gameType = 'enemy_ship'
   this.initialAcquisitionTime = null
+  this.isAcquired = false
 
   this.tertiaryDraw = function() {}
 
@@ -666,27 +679,44 @@ function enemyCarrier() {
       }
 
       // While we're here let's check if the player is within range for target acquisition
-      console.log(this.initialAcquisitionTime)
       if (!this.initialAcquisitionTime && Math.pow(this.xPos - player.xPos, 2) + Math.pow(this.yPos - player.yPos, 2) < Math.pow(600,2)) {
         // Player has just moved within range
         this.initialAcquisitionTime = new Date().getTime()
 
         // Attach our additional draw function for the circle
         this.tertiaryDraw = function() {
+          ctx.save()
           var radius = 600 - 600 * ((new Date().getTime() - this.initialAcquisitionTime) / CARRIER_ACQUISITION_TIME)
 
-          ctx.beginPath()
-          ctx.arc(0, 0, radius, 0, Math.PI, 1)
-          ctx.arc(0, 0, radius, Math.PI+1, 1, 1)
-          //ctx.arc(0, 0, radius, Math.PI*1.5 + 0.5, Math.PI*2, 1)
-          ctx.strokeWidth = 5
+          if (radius < 200) {
+            radius = 200
+            if (!this.isAcquired) {
+              this.isAcquired = true
+              dreadnought.fireOnCarrier(this)
+            }
+          }
+
+          ctx.rotate(Math.PI * (radius / 300))
+
+          ctx.lineWidth = 15
           ctx.strokeStyle = 'magenta'
+          ctx.beginPath()
+          ctx.arc(0, 0, radius, 0, Math.PI - 0.2, false)
           ctx.stroke()
+
+          ctx.beginPath()
+          ctx.arc(0, 0, radius, Math.PI, 1.5*Math.PI - 0.2, false)
+          ctx.stroke()
+
+          ctx.beginPath()
+          ctx.arc(0, 0, radius, 1.5*Math.PI, 2*Math.PI-0.2, false)
+          ctx.stroke()
+          ctx.restore()
         }
       }
 
       // If the target has been acquired but is now outside of range, cancle our acquisition
-      else if (this.initialAcquisitionTime && Math.pow(this.xPos - player.xPos, 2) + Math.pow(this.yPos - player.yPos) > Math.pow(600, 2)) {
+      if (this.initialAcquisitionTime && !this.isAcquired && Math.pow(this.xPos - player.xPos, 2) + Math.pow(this.yPos - player.yPos, 2) > Math.pow(600, 2)) {
         this.initialAcquisitionTime = null
         this.tertiaryDraw = function() {}
       }
@@ -724,6 +754,7 @@ function enemyCarrier() {
     ctx.lineTo(150, -50)
 
     ctx.strokeStyle = 'red'
+    ctx.lineWidth = 1
     ctx.stroke()
   }
 }
@@ -739,6 +770,8 @@ function friendlyDreadnought() {
   this.lastShotFired = new Date().getTime()
   this.rateOfFire = DREADNOUGHT_RATE_OF_FIRE
   this.gameType = 'friendly_ship'
+
+  this.additionalDraw = function() {}
 
   this.callMeWhenYouFoundSomethingYouGraveySuckingPigDog = function(foundItem) {
     // Holy christ this is an ugly line
@@ -782,6 +815,58 @@ function friendlyDreadnought() {
     shot.ySpeed = DREADNOUGHT_BULLET_VELOCITY * sin
     this.lastShotFired = new Date().getTime()
     itemsToDraw.push(shot)
+  }
+
+  this.fireOnCarrier = function(carrier) {
+    console.log('jaaaaaaa')
+    this.target = carrier
+    var deltaX = carrier.xPos - this.xPos
+    var deltaY = carrier.yPos - this.yPos
+    this.gunRotation = Math.atan2(deltaY, deltaX)
+    this.lazerFireStartTime = new Date().getTime()
+    this.lazerFirePhase = 0
+
+    this.additionalUpdate = function() {
+      var timeSinceStart = new Date().getTime() - this.lazerFireStartTime
+
+      if (this.lazerFirePhase == 0) {
+        this.lazerFirePhase = 1
+        this.additionalDraw = function() {
+          // Draw a thin line as to warn the player that the lazer is about to fire
+          var distance = Math.sqrt(Math.pow(this.xPos - this.target.xPos,2) + Math.pow(this.yPos - this.target.yPos, 2))
+          ctx.beginPath()
+          ctx.moveTo(0,0)
+          // Correct for the gun offset from the center of the dreadnought
+          ctx.lineTo(distance-(Math.cos(this.gunRotation) * 90), Math.sin(this.gunRotation) * 90)
+          ctx.lineWidth = 1
+          ctx.strokeStyle = 1
+          ctx.stroke()
+        }
+      }
+
+      console.log(timeSinceStart)
+      if (this.lazerFirePhase == 1 && timeSinceStart > 1500) {
+        this.lazerFirePhase = 2
+        var foo = Math.round(Math.sqrt(Math.pow(this.xPos - this.target.xPos,2) + Math.pow(this.yPos - this.target.yPos, 2)) / 30)
+        var x1 = this.xPos + (90 * Math.cos(this.rotation))
+        var y1 = this.yPos + (90 * Math.sin(this.rotation))
+        var cos = Math.cos(this.gunRotation)
+        var sin = Math.sin(this.gunRotation)
+
+        // Lazer spacers serve the function of colliding with things the cross
+        // the lazer
+        this.lazerSpacers = []
+        for (var i = 0; i < foo; i++) {
+          var spacer = new lazerSpacer(x1 + i*30*cos, y1 + i*30*sin)
+          this.lazerSpacers.push(spacer)
+          itemsToDraw.push(spacer)
+        }
+
+        this.additionalDraw = function() {
+
+        }
+      }
+    }
   }
 
   this.geometryDraw = function() {
@@ -843,6 +928,8 @@ function friendlyDreadnought() {
     ctx.lineTo(0,-5)
     ctx.strokeStyle = 'green'
     ctx.stroke()
+
+    this.additionalDraw()
   }
 }
 friendlyDreadnought.prototype = new LinearMover()
@@ -1122,6 +1209,10 @@ function tick() {
     })
   })
 
+  // There is a special case where the dreadnought is firing it's lazer where
+  // we have to draw it no matter where the player is.
+  if (dreadnought.lazerFireStartTime) dreadnought.draw()
+
   if (DEV_MODE) {
     ctx.font = "12px Verdana"
     ctx.fillStyle = "#0000FF"
@@ -1241,9 +1332,9 @@ function main(initCounts) {
     while (Math.sqrt(Math.pow(carrier.xPos, 2) + Math.pow(carrier.yPos)) < 1000) carrier.yPos += 100
   }
 
-  insertObject(enemyCarrier, [3000, 0], 0, [0,0], 0)
+  insertObject(enemyCarrier, [0, 3000], 0, [0,0], 0)
 
-  insertObject(friendlyDreadnought, [0,0], 0, [0,0], 0)
+  dreadnought = insertObject(friendlyDreadnought, [0,0], 0, [0,0], 0)
 
   /*
   // Set up a sexy asteroid collision
@@ -1336,8 +1427,6 @@ function start() {
   if (localStorage.gameOptions) {
     var gameOptions = JSON.parse(localStorage.gameOptions)
     for (option in gameOptions) {
-      console.log(gameOptions)
-      console.log(option)
       // Doing this because checkboxes and text fields need to be handled differently
       if (gameOptions[option] === true || gameOptions[option] === false) {
         document.getElementById(option).checked = gameOptions[option]
@@ -1419,7 +1508,6 @@ function start() {
 
     setTimeout(function() {
       otherThingsToDraw.push(new floatyText('JUST KIDDING'))
-      console.log('herah')
     }, 15000)
 
     setTimeout(function() {
