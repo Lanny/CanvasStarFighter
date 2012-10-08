@@ -28,6 +28,7 @@ function drawHitCircle(target) {
   ctx.beginPath()
   ctx.arc(0, 0, target.colRadius, 0, 2*Math.PI, 1)
   ctx.strokeStyle = 'yellow'
+  ctx.lineWidth = 1
   ctx.stroke()
 
   if (target.colType == 'complex') {
@@ -604,14 +605,49 @@ enemyFighter.prototype = new physMover()
 function lazerSpacer(x,y) {
   this.xSpeed = 0
   this.ySpeed = 0
-  this.colRadius = 1
+  this.colRadius = 5
+  this.colType = 'simple'
   this.xPos = x
   this.yPos = y
 
-  this.draw = function() {}
+  this.draw = function() {
+    if (DRAW_HIT_CIRCLES) {
+      ctx.save()
+      ctx.translate(canvas.halfWidth, canvas.halfHeight)
+      ctx.translate(this.xPos - player.xPos, this.yPos - player.yPos)
+      drawHitCircle(this)
+      ctx.restore()
+    }
+  }
   this.update = function() {}
   this.collide = function(obj) {}
 }
+
+function spark(x,y) {
+  this.xSpeed = (0.5 - Math.random()) * 500
+  this.ySpeed = (0.5 - Math.random()) * 500
+  this.xPos = x
+  this.yPos = y
+  this.rotation = Math.atan2(this.ySpeed, this.xSpeed)
+  this.colRadius = 0
+
+  this.duration = 200
+  this.startTime = new Date().getTime()
+
+  this.geometryDraw = function () {
+    ctx.beginPath()
+    ctx.moveTo(5, 0)
+    ctx.lineTo(0,0)
+    ctx.strokeStyle = 'yellow'
+    ctx.lineWidth = 2
+    ctx.stroke()
+  }
+  this.collide = function(obj) {}
+  this.additionalUpdate = function() {
+    if (new Date().getTime() - this.startTime > this.duration) itemsToDraw.splice(itemsToDraw.indexOf(this), 1)
+  }
+}
+spark.prototype = new LinearMover()
 
 function SquareDroid() {
   this.xSpeed = 20
@@ -818,10 +854,14 @@ function friendlyDreadnought() {
   }
 
   this.fireOnCarrier = function(carrier) {
-    console.log('jaaaaaaa')
     this.target = carrier
-    var deltaX = carrier.xPos - this.xPos
-    var deltaY = carrier.yPos - this.yPos
+
+    this.gunX = this.xPos + (90 * Math.cos(this.rotation))
+    this.gunY = this.yPos + (90 * Math.sin(this.rotation))
+
+    var deltaX = carrier.xPos - this.gunX
+    var deltaY = carrier.yPos - this.gunY
+    this._distanceToTarget = Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2))
     this.gunRotation = Math.atan2(deltaY, deltaX)
     this.lazerFireStartTime = new Date().getTime()
     this.lazerFirePhase = 0
@@ -833,23 +873,19 @@ function friendlyDreadnought() {
         this.lazerFirePhase = 1
         this.additionalDraw = function() {
           // Draw a thin line as to warn the player that the lazer is about to fire
-          var distance = Math.sqrt(Math.pow(this.xPos - this.target.xPos,2) + Math.pow(this.yPos - this.target.yPos, 2))
           ctx.beginPath()
           ctx.moveTo(0,0)
           // Correct for the gun offset from the center of the dreadnought
-          ctx.lineTo(distance-(Math.cos(this.gunRotation) * 90), Math.sin(this.gunRotation) * 90)
+          ctx.lineTo(this._distanceToTarget, 0)
           ctx.lineWidth = 1
-          ctx.strokeStyle = 1
+          ctx.strokeStyle = 'blue'
           ctx.stroke()
         }
       }
 
-      console.log(timeSinceStart)
       if (this.lazerFirePhase == 1 && timeSinceStart > 1500) {
         this.lazerFirePhase = 2
-        var foo = Math.round(Math.sqrt(Math.pow(this.xPos - this.target.xPos,2) + Math.pow(this.yPos - this.target.yPos, 2)) / 30)
-        var x1 = this.xPos + (90 * Math.cos(this.rotation))
-        var y1 = this.yPos + (90 * Math.sin(this.rotation))
+        var foo = this._distanceToTarget / 30
         var cos = Math.cos(this.gunRotation)
         var sin = Math.sin(this.gunRotation)
 
@@ -857,13 +893,28 @@ function friendlyDreadnought() {
         // the lazer
         this.lazerSpacers = []
         for (var i = 0; i < foo; i++) {
-          var spacer = new lazerSpacer(x1 + i*30*cos, y1 + i*30*sin)
+          var spacer = new lazerSpacer(this.gunX + (i*30)*cos, this.gunY + (i*30)*sin)
           this.lazerSpacers.push(spacer)
           itemsToDraw.push(spacer)
         }
 
         this.additionalDraw = function() {
+          var timeSinceStart = new Date().getTime() - this.lazerFireStartTime
+          ctx.lineWidth = ((timeSinceStart - 1500) / 2000) * 20
+          if (ctx.lineWidth > 20) ctx.lineWidth = 20
+          ctx.lineCap = 'round'
 
+          ctx.beginPath()
+          ctx.moveTo(0,0)
+          // Correct for the gun offset from the center of the dreadnought
+          ctx.lineTo(this._distanceToTarget, 0)
+          ctx.strokeStyle = 'red'
+          ctx.stroke()
+
+          if (Math.random() > Math.pow(5000, 0-(1/FPSCounter.avg))) {
+            itemsToDraw.push(new spark(this.target.xPos, this.target.yPos))
+            itemsToDraw.push(new spark(this.target.xPos, this.target.yPos))
+          }
         }
       }
     }
@@ -913,6 +964,7 @@ function friendlyDreadnought() {
     ctx.lineTo(150, -20)
 
     ctx.strokeStyle = 'green'
+    ctx.lineWidth = 1
     ctx.stroke()
 
     // Draw gun
@@ -930,6 +982,9 @@ function friendlyDreadnought() {
     ctx.stroke()
 
     this.additionalDraw()
+    // Undo the gun translation shit
+    ctx.rotate(-this.gunRotation)
+    ctx.translate(-90,0)
   }
 }
 friendlyDreadnought.prototype = new LinearMover()
@@ -1165,7 +1220,7 @@ function tick() {
       if (item == secondItem) return
 
       var distance = Math.sqrt(Math.pow(Math.abs(item.xPos - secondItem.xPos), 2) + Math.pow(Math.abs(item.yPos - secondItem.yPos), 2))
-      if (distance <= item.colRadius + secondItem.colRadius) {
+      if (distance <= item.colRadius + secondItem.colRadius && item.colRadius && secondItem.colRadius) {
         // Collisions may have happened, definitely in the case of simple 
         // objects, maybe for complex ones
         if (item.colType == "complex" || secondItem.colType == "complex") {
@@ -1332,7 +1387,7 @@ function main(initCounts) {
     while (Math.sqrt(Math.pow(carrier.xPos, 2) + Math.pow(carrier.yPos)) < 1000) carrier.yPos += 100
   }
 
-  insertObject(enemyCarrier, [0, 3000], 0, [0,0], 0)
+  insertObject(enemyCarrier, [2000, 2000], 0, [0,0], 0)
 
   dreadnought = insertObject(friendlyDreadnought, [0,0], 0, [0,0], 0)
 
