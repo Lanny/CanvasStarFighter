@@ -1575,6 +1575,12 @@ function start() {
     }, 22000)
   }
 
+  // Handle window resizing
+  window.onresize = function() {
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+  }
+
   // Add our little "turn red on mouseover" effect to mm_buttons
   var buttons = document.getElementsByClassName('mm_button')
   
