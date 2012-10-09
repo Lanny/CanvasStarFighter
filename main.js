@@ -60,314 +60,29 @@ function floatyText(text) {
   }
 }
 
-function drawFromPathList(pathList) {
-  ctx.translate(canvas.halfWidth - ((pathList.length * 35)/2) - 35,50)
-  for (var letterIndex = 0; letterIndex < pathList.length; letterIndex++) {
-    ctx.translate(35,0)
-    ctx.beginPath()
+function drawFromPointList(pointList) {
+  ctx.beginPath()
 
-    for (var motionIndex = 0; motionIndex < pathList[letterIndex].length; motionIndex++) {
-      var motion = pathList[letterIndex][motionIndex] 
-      if (motion[2] == 'l') {
-        //ctx.lineTo(motion[0] + (Math.random() * 10), motion[1] + (Math.random() * 10))
-        ctx.lineTo(motion[0], motion[1])
-      }
-      else if (motion[2] == 'm') {
-        //ctx.moveTo(motion[0] + (Math.random() * 10), motion[1] + (Math.random() * 10))
-        ctx.moveTo(motion[0], motion[1])
-      }
+  for (var motionIndex = 0; motionIndex < pointList.length; motionIndex++) {
+    var motion = pointList[motionIndex] 
+    if (motion[2] == 'l') {
+      ctx.lineTo(motion[0], motion[1])
     }
-    //ctx.strokeStyle = '#' + Math.floor(Math.random() * 10) + Math.floor(Math.random()*10) + Math.floor(Math.random()*10) 
-    ctx.strokeStyle = 'white'
-    ctx.lineWidth = 2
-    ctx.stroke()
+    else if (motion[2] == 'm') {
+      ctx.moveTo(motion[0], motion[1])
+    }
   }
+  ctx.stroke()
 }
 
-pathFont = { 
-  'A' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [30,70,'l'],
-  [30,0,'l'],
-  [0,0,'l'],
-  [15,70,'m'],
-  [15,40,'l'],
-  [15,30,'m'],
-  [15,20,'l']],
-
-  'B' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [30,70,'l'],
-  [30,0,'l'],
-  [0,0,'l'],
-  [30,35,'m'],
-  [15,35,'l'],
-  [15,10,'m'],
-  [15,25,'l'],
-  [15,45,'m'],
-  [15,60,'l']],
-
-  'C' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [30,70,'l'],
-  [30,0,'l'],
-  [0,0,'l'],
-  [30,35,'m'],
-  [15,35,'l']
-  ],
-
-  'D' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [20,70,'l'],
-  [30,60,'l'],
-  [30,10,'l'],
-  [20,0,'l'],
-  [0,0,'l'],
-  [15,20,'m'],
-  [15,50,'l']],
-
-  'E' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [30,70,'l'],
-  [30,0,'m'],
-  [0,0,'l'],
-  [30,25,'m'],
-  [15,25,'l'],
-  [30,45,'m'],
-  [15,45,'l'],
-  [30,0,'m'],
-  [30,25,'l'],
-  [25,25,'m'],
-  [25,45,'l'],
-  [30,45,'m'],
-  [30,70,'l']],
-
-  'F' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [15,70,'l'],
-  [15,45,'l'],
-  [30,0,'m'],
-  [0,0,'l'],
-  [30,25,'m'],
-  [15,25,'l'],
-  [25,45,'m'],
-  [15,45,'l'],
-  [30,0,'m'],
-  [30,25,'l'],
-  [25,25,'m'],
-  [25,45,'l']],
-
-  'G' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [30,70,'l'],
-  [30,0,'l'],
-  [0,0,'l'],
-  [30,35,'m'],
-  [10,35,'l'],
-  [10,50,'l'],
-  [20,50,'l'],
-  [15,50,'m'],
-  [15,60,'l'],
-  [15,35,'m'],
-  [15,15,'l']
-  ],
-
-  'H' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [30,70,'l'],
-  [30,0,'l'],
-  [0,0,'l'],
-  [15,0,'m'],
-  [15,25,'l'],
-  [15,70,'m'],
-  [15,50,'l']],
-
-  'J' : [
-  [0,0,'m'],
-  [0,15,'l'],
-  [15,15,'l'],
-  [15,55,'l'],
-  [15,40,'m'],
-  [0,40,'l'],
-  [0,70,'l'],
-  [30,70,'l'],
-  [30,0,'l'],
-  [0,0,'l']],
-
-  'K' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [15,70,'l'],
-  [15,55,'l'],
-  [20,70,'l'],
-  [30,70,'l'],
-  [30,45,'l'],
-  [20,35,'l'],
-  [30,25,'l'],
-  [30,0,'l'],
-  [20,0,'l'],
-  [15,15,'l'],
-  [15,0,'l'],
-  [0,0,'l']],
-
-  'L' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [30,70,'l'],
-  [30,55,'l'],
-  [15,55,'l'],
-  [15,0,'l'],
-  [0,0,'l']],
-
-  'M' : [
-  [10,0,'m'],
-  [0,0,'l'],
-  [0,70,'l'],
-  [30,70,'l'],
-  [30,0,'l'],
-  [20,0,'l'],
-  [15,5,'l'],
-  [10,0,'l'],
-  [15,70,'m'],
-  [15,20,'l']],
-
-  'N' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [15,70,'l'],
-  [15,0,'l'],
-  [30,0,'l'],
-  [30,70,'l'],
-  [0,0,'l']
-  ],
-
-  'O' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [30,70,'l'],
-  [30,0,'l'],
-  [0,0,'l'],
-  [15,20,'m'],
-  [15,50,'l']],
-
-  'P' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [15,70,'l'],
-  [15,35,'l'],
-  [20,35,'l'],
-  [30,25,'l'],
-  [30,10,'l'],
-  [20,0,'l'],
-  [0,0,'l'],
-  [15,10,'m'],
-  [15,25,'l']],
-
-  'I' : [
-  [0,0,'m'],
-  [0,20,'l'],
-  [7.5,20,'l'],
-  [7.5,50,'l'],
-  [0,50,'l'],
-  [0,70,'l'],
-  [30,70,'l'],
-  [30,50,'l'],
-  [22.5,50,'l'],
-  [22.5,20,'l'],
-  [30,20,'l'],
-  [30,0,'l'],
-  [0,0,'l']],
-
-  'R' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [30,70,'l'],
-  [30,30,'l'],
-  [25,25,'l'],
-  [30,20,'l'],
-  [30,0,'l'],
-  [20,0,'l'],
-  [0,0,'l'],
-  [15,70,'m'],
-  [15,45,'l'],
-  [10,35,'l'],
-  [15,25,'m'],
-  [15,15,'l']],
-
-  'S' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [30,70,'l'],
-  [30,0,'l'],
-  [0,0,'l'],
-  [30,20,'m'],
-  [15,20,'l'],
-  [15,30,'l'],
-  [0,50,'m'],
-  [15,50,'l'],],
-
-  'T' : [
-  [0,0,'m'],
-  [0,20,'l'],
-  [7.5,20,'l'],
-  [7.5,70,'l'],
-  [22.5,70,'l'],
-  [22.5,20,'l'],
-  [30,20,'l'],
-  [30,0,'l'],
-  [0,0,'l']],
-
-  'U' : [
-  [0,0,'m'],
-  [0,70,'l'],
-  [30,70,'l'],
-  [30,0,'l'],
-  [0,0,'l'],
-  [15,0,'m'],
-  [15,55,'l']],
-
-  'Y' : [
-  [0,0,'m'],
-  [10,0,'l'],
-  [15,5,'l'],
-  [20,0,'l'],
-  [30,0,'l'],
-  [30,15,'l'],
-  [22.5,22.5,'l'],
-  [22.5,70,'l'],
-  [7.5,70,'l'],
-  [7.5,22.5,'l'],
-  [0,15,'l'],
-  [0,0,'l']],
-
-  '-' : [
-  [0,25,'m'],
-  [0,45,'l'],
-  [30,45,'l'],
-  [30,25,'l'],
-  [0,25,'l']],
-
-  ':' : [
-  [0,0,'m'],
-  [0,30,'l'],
-  [30,30,'l'],
-  [30,0,'l'],
-  [0,0,'l'],
-  [0,40,'m'],
-  [0,70,'l'],
-  [30,70,'l'],
-  [30,40,'l'],
-  [0,40,'l']],
-
-  ' ' : []
+function drawFromPathList(pathList) {
+  ctx.translate(canvas.halfWidth - ((pathList.length * 35)/2) - 35,50)
+  ctx.lineWidth = 2
+  ctx.strokeStyle = 'white'
+  for (var letterIndex = 0; letterIndex < pathList.length; letterIndex++) {
+    ctx.translate(35,0)
+    drawFromPointList(pathList[letterIndex])
+  }
 }
 
 function stringToPathList(string) {
@@ -961,58 +676,16 @@ function friendlyDreadnought() {
         this.additionalUpdate = this._originalAdditionalUpdate
 
         this.lazerSpacers.forEach(function(spacer, index, array) {
-          itemsToDraw.splice(itemsToDraw.index(spacer),1)
-        }
+          itemsToDraw.splice(itemsToDraw.indexOf(spacer),1)
+        })
       }
     }
   }
 
   this.geometryDraw = function() {
-    ctx.beginPath()
-    ctx.moveTo(150, -20)
-    ctx.lineTo(150, 20)
-    ctx.lineTo(90, 50)
-    ctx.lineTo(50, 50)
-    ctx.lineTo(50, 30)
-    ctx.lineTo(10, 30)
-    ctx.lineTo(10, 50)
-    ctx.lineTo(-20, 50)
-    ctx.lineTo(-20, 45)
-    ctx.lineTo(-50, 45)
-    ctx.lineTo(-50, 50)
-    ctx.lineTo(-80, 50)
-    ctx.lineTo(-80, 45)
-    ctx.lineTo(-110, 45)
-    ctx.lineTo(-110, 50)
-    ctx.lineTo(-140, 50)
-    ctx.lineTo(-140, 40)
-    ctx.lineTo(-130, 40)
-    ctx.lineTo(-130, 20)
-    ctx.lineTo(-140, 20)
-    // Now draw the other side
-    ctx.lineTo(-140, -20)
-    ctx.lineTo(-130, -20)
-    ctx.lineTo(-130, -40)
-    ctx.lineTo(-140, -40)
-    ctx.lineTo(-140, -50)
-    ctx.lineTo(-110, -50)
-    ctx.lineTo(-110, -45)
-    ctx.lineTo(-80, -45)
-    ctx.lineTo(-80, -50)
-    ctx.lineTo(-50, -50)
-    ctx.lineTo(-50, -45)
-    ctx.lineTo(-20, -45)
-    ctx.lineTo(-20, -50)
-    ctx.lineTo(10, -50)
-    ctx.lineTo(10, -30)
-    ctx.lineTo(50, -30)
-    ctx.lineTo(50, -50)
-    ctx.lineTo(90, -50)
-    ctx.lineTo(150, -20)
-
-    ctx.strokeStyle = 'green'
     ctx.lineWidth = 1
-    ctx.stroke()
+    ctx.strokeStyle = 'green'
+    drawFromPointList(dreadnoughtPath)
 
     // Draw gun
     ctx.translate(90, 0)
@@ -1025,7 +698,6 @@ function friendlyDreadnought() {
     ctx.lineTo(30, 5)
     ctx.lineTo(30, -5)
     ctx.lineTo(0,-5)
-    ctx.strokeStyle = 'green'
     ctx.stroke()
 
     this.additionalDraw()
