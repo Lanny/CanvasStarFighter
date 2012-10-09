@@ -762,7 +762,7 @@ function enemyCarrier() {
   this.blowTheFuckUp = function() {
     this.explosionStartTime = new Date().getTime()
     // Explosion are of the format [center x, center y, max radius, start time, duration]
-    this._explosions = [[-50,-20,75,500,500], [50,-20,75,0,500], [-25,-25,75,250,500], [0,0,150,1500,1000]]
+    this._explosions = [[-50,-20,75,500,500], [50,-20,75,0,500], [-25,-25,75,250,500], [50,30,75,300,500], [0,0,150,1500,1000]]
 
     this.tertiaryDraw = function() {
       var timeSinceStart = new Date().getTime() - this.explosionStartTime
@@ -775,6 +775,15 @@ function enemyCarrier() {
           ctx.strokeStyle = 'red'
           ctx.stroke()
         }
+      }
+      if (timeSinceStart > 2000 && timeSinceStart < 5000) {
+        var r = ((timeSinceStart - 2000) / 3000) * 500
+        ctx.beginPath()
+        ctx.arc(0, 0, r, 0, 2*Math.PI, 1)
+        ctx.fillStyle = ctx.createRadialGradient(0,0,0,0,0,r)
+        ctx.fillStyle.addColorStop(0, 'white')
+        ctx.fillStyle.addColorStop(1.0, 'rgba(0,0,0,0)')
+        ctx.fill()
       }
     }
   }
@@ -882,6 +891,7 @@ function friendlyDreadnought() {
     var deltaX = carrier.xPos - this.gunX
     var deltaY = carrier.yPos - this.gunY
     this._distanceToTarget = Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2))
+    this._originalAdditionalUpdate = this.additionalUpdate
     this.gunRotation = Math.atan2(deltaY, deltaX)
     this.lazerFireStartTime = new Date().getTime()
     this.lazerFirePhase = 0
@@ -941,6 +951,18 @@ function friendlyDreadnought() {
       if (this.lazerFirePhase == 2 && timeSinceStart > 3500) {
         this.lazerFirePhase = 3
         this.target.blowTheFuckUp()
+      }
+
+      if (this.lazerFirePhase == 3 && timeSinceStart > 5500) {
+        this.lazerFirePhase = null
+        this.target = null
+        this.lazerFireStartTime = null
+        this.additionalDraw = function() {}
+        this.additionalUpdate = this._originalAdditionalUpdate
+
+        this.lazerSpacers.forEach(function(spacer, index, array) {
+          itemsToDraw.splice(itemsToDraw.index(spacer),1)
+        }
       }
     }
   }
