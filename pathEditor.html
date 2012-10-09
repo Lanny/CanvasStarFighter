@@ -1,0 +1,43 @@
+<html>
+  <head>
+  	<title>pathEditor</title>
+  	<script src="pathEditor.js"></script>
+  	<style>
+  		body {
+  			margin : 0px;
+  		}
+  		button {
+  			height : 200px;
+  			width : 195px;
+  			margin : 0px;
+  			vertical-align : top;
+  		}
+  		textarea {
+  			vertical-align : top;
+  			margin : 0px;
+  		}
+  		#display {
+  			position:absolute;
+  			z-index: 999;
+  			color: #BBB;
+  			right: 0px;
+  			border-left: dashed;
+  			border-width: 1px;
+  			border-color: #fff;
+  			background: transparent;
+  			width: 200px;
+  			font-family: monospace;
+  			overflow: auto;
+  		}
+		</style>
+  </head>
+  <body onload="start()">
+  	<div id="display"></div>
+  	<canvas id="primaryCanvas">
+  	</canvas>
+  	<div id="controls">
+		  <textarea id="output"></textarea>
+		  <button id="compute">Render</button>
+	</div>
+  </body>
+</html>
