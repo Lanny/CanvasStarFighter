@@ -759,6 +759,26 @@ function enemyCarrier() {
     }
   }
 
+  this.blowTheFuckUp = function() {
+    this.explosionStartTime = new Date().getTime()
+    // Explosion are of the format [center x, center y, max radius, start time, duration]
+    this._explosions = [[-50,-20,75,500,500], [50,-20,75,0,500], [-25,-25,75,250,500], [0,0,150,1500,1000]]
+
+    this.tertiaryDraw = function() {
+      var timeSinceStart = new Date().getTime() - this.explosionStartTime
+      for (var i = 0; i < this._explosions.length; i++) {
+        var currentRadius = this._explosions[i][2] * ((timeSinceStart - this._explosions[i][3]) / this._explosions[i][4])
+        if (1 < currentRadius && currentRadius < this._explosions[i][2]) {
+          ctx.beginPath()
+          ctx.arc(this._explosions[i][0], this._explosions[i][1], currentRadius, 0, 2*Math.PI, false)
+          ctx.lineWidth = 1
+          ctx.strokeStyle = 'red'
+          ctx.stroke()
+        }
+      }
+    }
+  }
+
   this.geometryDraw = function() {
     // This will draw our acquisition circle if applicable
     this.tertiaryDraw()
@@ -916,6 +936,11 @@ function friendlyDreadnought() {
             itemsToDraw.push(new spark(this.target.xPos, this.target.yPos))
           }
         }
+      }
+
+      if (this.lazerFirePhase == 2 && timeSinceStart > 3500) {
+        this.lazerFirePhase = 3
+        this.target.blowTheFuckUp()
       }
     }
   }
@@ -1387,7 +1412,7 @@ function main(initCounts) {
     while (Math.sqrt(Math.pow(carrier.xPos, 2) + Math.pow(carrier.yPos)) < 1000) carrier.yPos += 100
   }
 
-  insertObject(enemyCarrier, [2000, 2000], 0, [0,0], 0)
+  ec = insertObject(enemyCarrier, [2000, 2000], 0, [0,0], 0)
 
   dreadnought = insertObject(friendlyDreadnought, [0,0], 0, [0,0], 0)
 
@@ -1579,6 +1604,8 @@ function start() {
   window.onresize = function() {
     canvas.width = window.innerWidth
     canvas.height = window.innerHeight
+    canvas.halfWidth = canvas.width/2
+    canvas.halfHeight = canvas.height/2
   }
 
   // Add our little "turn red on mouseover" effect to mm_buttons
