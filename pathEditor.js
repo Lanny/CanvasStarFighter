@@ -82,6 +82,23 @@ function renderFromText() {
 	}
 }
 
+function shift(axis, quantity) {
+	renderFromText()
+
+	for (var i = 0; i < currentPointList.length; i++) {
+		currentPointList[i][axis=='x'?0:1] += quantity
+	}
+
+	pointListToOut()
+	renderFromText()
+}
+
+function pointListToOut() {
+	var foo = JSON.stringify(currentPointList).replace(/],/g, '],\n')
+	foo
+	outText.value = foo
+}
+
 function drawFromPointList(pointList) {
   ctx.fillStyle = "rgba(0, 0, 0, 1)"
   ctx.fillRect(0, 0, canvas.width, canvas.height)

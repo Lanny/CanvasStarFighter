@@ -194,6 +194,10 @@ function projectile() {
     if (obj.colType == 'projectile') return
     var i = itemsToDraw.lastIndexOf(this)
     itemsToDraw.splice(i, 1) 
+
+    // Call the target's collide method becuase we're removing ourself from
+    // the list, so the second collision won't otherwise register
+    obj.collide(this)
   }
 }
 projectile.prototype = new LinearMover()
@@ -215,6 +219,9 @@ function dreadnoughtProjectile() {
     if (obj.colType == 'projectile' || obj.gameType == "friendly_ship") return
     var i = itemsToDraw.lastIndexOf(this)
     itemsToDraw.splice(i, 1) 
+
+    console.log(obj)
+    obj.collide(this)
   }
 }
 dreadnoughtProjectile.prototype = new LinearMover()
@@ -368,7 +375,7 @@ function SquareDroid() {
   this.xSpeed = 20
   this.ySpeed = 20
   this.colRadius = 30
-  this.rotationalVelocity = 2
+  this.rotationalVelocity = 0
 
   // Apparenty we have "game types" now. Whatever that means.
   this.gameType = "environmental"
@@ -491,7 +498,7 @@ function enemyCarrier() {
           ctx.stroke()
         }
       }
-      if (timeSinceStart > 2000 && timeSinceStart < 5000) {
+      if (timeSinceStart > 2000 && timeSinceStart < 5500) {
         var r = ((timeSinceStart - 2000) / 3000) * 500
         ctx.beginPath()
         ctx.arc(0, 0, r, 0, 2*Math.PI, 1)
@@ -499,6 +506,13 @@ function enemyCarrier() {
         ctx.fillStyle.addColorStop(0, 'white')
         ctx.fillStyle.addColorStop(1.0, 'rgba(0,0,0,0)')
         ctx.fill()
+      }
+
+      if (timeSinceStart > 5000) {
+        insertObject(carrierFrontFragment, [this.xPos + 30, this.yPos], 0, [80,20], 0.5, true)
+        insertObject(carrierBackFragment, [this.xPos - 95, this.yPos], 0, [-50,50], -0.5, true)
+
+        itemsToDraw.splice(itemsToDraw.indexOf(this), 1)
       }
     }
   }
@@ -539,6 +553,36 @@ function enemyCarrier() {
   }
 }
 enemyCarrier.prototype = new LinearMover()
+
+function carrierFrontFragment() {
+  this.colType = 'complex'
+  this.colCircleArray = [[0,0,50], [-80,40,15], [95,-25,25]]
+  this.colRadius = 120 
+
+  this.geometryDraw = function() {
+    ctx.lineWidth = 1
+    ctx.strokeStyle = 'red'
+    drawFromPointList(carrierFrontFragmentPath)
+  }
+
+  this.collide = function(target) {
+
+  }
+}
+carrierFrontFragment.prototype = new LinearMover()
+
+function carrierBackFragment() {
+  //this.colType = 'complex'
+  this.colCircleArray = [[0,0,50]]
+  this.colRadius = 50
+
+  this.geometryDraw = function() {
+    ctx.lineWidth = 1
+    ctx.strokeStyle = 'red'
+    drawFromPointList(carrierBackFragmentPath)
+  }
+}
+carrierBackFragment.prototype = new LinearMover()
 
 function friendlyDreadnought() {
   this.colType = 'complex'
@@ -965,14 +1009,14 @@ function tick() {
             var distance = Math.sqrt(Math.pow(Math.abs(subitem[0] - simpleObj.xPos), 2) + Math.pow(Math.abs(subitem[1] - simpleObj.yPos), 2))
             if (distance <= subitem[2] + simpleObj.colRadius) {
               item.collide(secondItem)
-              secondItem.collide(item)
+              //secondItem.collide(item)
             }
           })
         }
 
         else {
           item.collide(secondItem)
-          secondItem.collide(item)
+          //secondItem.collide(item)
         }
       }
 
@@ -1010,11 +1054,12 @@ function tick() {
   setTimeout(tick, 5)
 }
 
-function insertObject(object, loc, rot, vol, rotVol) {
+function insertObject(object, loc, rot, vol, rotVol, ignoreCollisions) {
   var obj = new object()
   // If this gets set to true, we have to try agains with a shift
   var tryAgainFlag = false
 
+  /*
   // Check if our insertion position is clear, and do something about it if not
   itemsToDraw.forEach(function(item, index, array) {
     var distance = Math.sqrt(Math.pow(loc[0] - item.xPos, 2) + Math.pow(loc[1] - item.yPos, 2))
@@ -1025,10 +1070,11 @@ function insertObject(object, loc, rot, vol, rotVol) {
     }
   })
 
-  if (tryAgainFlag) {
+  if (tryAgainFlag && !ignoreCollisions) {
     insertObject(object, [loc[0], loc[1]+30], rot, vol, rotVol)
     return
   }
+  */
 
   // Got here? Ok, we're clear to insert
   obj.xPos = loc[0]
@@ -1036,7 +1082,7 @@ function insertObject(object, loc, rot, vol, rotVol) {
   obj.rotation = rot
   obj.xSpeed = vol[0]
   obj.ySpeed = vol[1]
-  obj.rotationalVolicity = rotVol
+  obj.rotationalVelocity = rotVol
   itemsToDraw.push(obj)
 
   return obj
