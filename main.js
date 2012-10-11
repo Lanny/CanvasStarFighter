@@ -929,6 +929,8 @@ function Player() {
     var deathText = possibleText[i]
 
     ctx.fillText(deathText, (canvas.width/2) - 200, canvas.height/2)
+
+    document.getElementById('restartDiv').style.display = ""
   }
 }
 
@@ -970,8 +972,8 @@ function tick() {
   itemsToDraw.forEach(function(item, index, array) {
     item.update()
     // Check that the item hasn't floated beyond the field of battle
-    if (Math.abs(item.yPos) > Y_BOUNDRY) item.collide({colType:"boundry", xSpeed:0, ySpeed:1})
-    if (Math.abs(item.xPos) > X_BOUNDRY) item.collide({colType:"boundry", xSpeed:1, ySpeed:0})
+    if (Math.abs(item.yPos) > Y_BOUNDRY) item.collide({colType:"boundry", collide:function(){}, xSpeed:0, ySpeed:1})
+    if (Math.abs(item.xPos) > X_BOUNDRY) item.collide({colType:"boundry", collide:function(){}, xSpeed:1, ySpeed:0})
 
     // If the item in question is beyond the player's sight don't bother to draw or collision check
     if (Math.abs(item.xPos - player.xPos) > canvas.width || Math.abs(item.yPos - player.yPos) > canvas.height) return
@@ -1222,7 +1224,8 @@ function start() {
     // Remove all the major divs (options, init, and so on)
     var mDivs = document.getElementsByClassName('major_div')
     for (var i = 0; i < mDivs.length; i++) {
-      document.body.removeChild(mDivs[i])
+      mDivs[i].style.display="none"
+      //document.body.removeChild(mDivs[i])
     }
 
     localStorage.gameOptions = JSON.stringify({
@@ -1273,6 +1276,12 @@ function start() {
     // Return from the options menu to the main menu
     document.getElementById('optionsDiv').style.display = 'none'
     document.getElementById('initDiv').style.display = ''
+  }
+
+  document.getElementById('restartButton').onclick = function() {
+    document.getElementById('initDiv').style.display = ""
+    document.getElementById('restartDiv').style.display = "none"
+    start()
   }
 
   // Adjust volume accoring to what is in local storage
