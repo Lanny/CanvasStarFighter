@@ -861,7 +861,7 @@ function Player() {
 
   this.activateConversionCore = function() {
     // If we've already activated a conversion we shouldn't do it again
-    // (Fuck javascript and its broken keydown even)
+    // (Fuck javascript and its broken keydown event)
     if (this.ignoreConversion) {return}
       
     this.conversionStarted = new Date().getTime()
@@ -907,28 +907,33 @@ function Player() {
   }
 
   this.collide = function(type) {
-    // Might called twice becuase I'm a shitty coder
-    if (!keepOnTicking) return
-
-    // We're dead, stop the game
-    keepOnTicking = false
-
+    // We're dead!
     // Turn off game music and play our death tone ("death tone", that sounds badass)
     document.getElementById('game_music').pause()
     document.getElementById('death_music').play()
 
-    // And tell the player that it is so :
-    ctx.font = "42px Verdana"
-    ctx.fillStyle = "#FF0000"
-    
+    // Just cripple the hell out of the player. Let's see how it work...
+    this.xSpeed = 0
+    this.ySpeed = 0
+    this.accelerating = false
+    this.update = function() {}
+    this.colRadius = 0
+
     var possibleText = ['You\'re a crying saucer',
                         'Keep it extra terestri-real',
                         'Looks like you spaced out']
 
     var i = Math.floor(Math.random()*3)
-    var deathText = possibleText[i]
+    this._deathText = possibleText[i]
 
-    ctx.fillText(deathText, (canvas.width/2) - 200, canvas.height/2)
+    // And tell the player that it is so :
+    this.draw = function() {
+      ctx.font = "42px Verdana"
+      ctx.fillStyle = "#FF0000"
+      
+
+      ctx.fillText(this._deathText, (canvas.width/2) - 200, canvas.height/2)
+    }
 
     document.getElementById('restartDiv').style.display = ""
   }
@@ -1094,8 +1099,22 @@ function main(initCounts) {
   document.getElementById('game_music').play()
   curTime = new Date()
 
+  itemsToDraw = []
+
+  // Set up our capital ships
+  for (var i = 0; i < 0; i++) {
+    // Insert our carrier, and if it's within the dreadnought's search radius, move out
+    var carrier = insertObject(enemyCarrier, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [0,0], 0)
+    while (Math.sqrt(Math.pow(carrier.xPos, 2) + Math.pow(carrier.yPos)) < 1000) carrier.yPos += 100
+  }
+
+  ec = insertObject(enemyCarrier, [2000, 2000], 0, [0,0], 0)
+
+  dreadnought = insertObject(friendlyDreadnought, [0,0], 0, [0,0], 0)
+
   // init our player and bind input
   player = new Player()
+  itemsToDraw.push(player)
 
   window.addEventListener('keydown', function(e) {
     switch(e.keyCode) {
@@ -1136,7 +1155,6 @@ function main(initCounts) {
     starField.push(newStar)
   }
 
-  itemsToDraw = [player]
   keepOnTicking = true
 
   for (var i = 0; i < initCounts.fighters; i++) {
@@ -1147,17 +1165,6 @@ function main(initCounts) {
     insertObject(SquareDroid, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [(Math.random() - 0.5) * 300, (Math.random() - 0.5) * 300], (Math.random() - 0.5) * 2 * Math.PI)
   }
   
-  // Set up our capital ships
-  for (var i = 0; i < 0; i++) {
-    // Insert our carrier, and if it's within the dreadnought's search radius, move out
-    var carrier = insertObject(enemyCarrier, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [0,0], 0)
-    while (Math.sqrt(Math.pow(carrier.xPos, 2) + Math.pow(carrier.yPos)) < 1000) carrier.yPos += 100
-  }
-
-  ec = insertObject(enemyCarrier, [2000, 2000], 0, [0,0], 0)
-
-  dreadnought = insertObject(friendlyDreadnought, [0,0], 0, [0,0], 0)
-
   /*
   // Set up a sexy asteroid collision
   insertObject(SquareDroid, [0,0], 0, [20,-20], 0)
@@ -1279,6 +1286,7 @@ function start() {
   }
 
   document.getElementById('restartButton').onclick = function() {
+    ctx.restore()
     document.getElementById('initDiv').style.display = ""
     document.getElementById('restartDiv').style.display = "none"
     start()
