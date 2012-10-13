@@ -11,6 +11,7 @@ CARRIER_SPAWN_TIME = 3 * 1000 // Time between fighter spawns per carrier
 CARRIER_ACQUISITION_TIME = 5 * 1000 // Time it takes for the player to scout a carrier
 X_BOUNDRY = 5000 // Size of the game, passing beyond this distance from 0,0 is lethal
 Y_BOUNDRY = 5000 // Also it's marked with a big red line ;)
+MINIMAP = true
 DRAW_HIT_CIRCLES = false // Draw hit circles for movers
 DEV_MODE = true // Set true for additional debugging and performance stats
 
@@ -598,7 +599,6 @@ function friendlyDreadnought() {
   this.additionalDraw = function() {}
 
   this.callMeWhenYouFoundSomethingYouGraveySuckingPigDog = function(foundItem) {
-    // Holy christ this is an ugly line
     if (foundItem.gameType == 'enemy_ship' && this.target == null) {
       this.target = foundItem
     }
@@ -788,6 +788,7 @@ function Player() {
   this.rotationalVelocity = 0
   this.colRadius = 15
   this.colType = 'player'
+  this.gameType = 'player'
 
   this.update = function() {
     // Adjust our location
@@ -853,6 +854,30 @@ function Player() {
       ctx.lineWidth=4
       ctx.strokeStyle = "red"
       ctx.stroke()
+    }
+
+    if (MINIMAP) {
+      ctx.save()
+      var constant = 150 / 5000
+      ctx.translate(canvas.width-300, 0)
+      ctx.fillStyle = 'rgba(255,255,255,0.1)'
+      ctx.fillRect(0,0,300,300)
+      ctx.translate(150, 150)
+      itemsToDraw.forEach(function(item,index,array){
+        if (item.gameType == 'friendly_ship') {
+          ctx.fillStyle = 'rgba(0,255,0,0.8)'
+          ctx.fillRect(item.xPos*constant, item.yPos*constant, 2, 2)
+        }
+        else if (item.gameType == 'player') {
+          ctx.fillStyle = 'rgba(0,0,255,1)'
+          ctx.fillRect(item.xPos*constant, item.yPos*constant, 2, 2)
+        }
+        else if (item.gameType == 'enemy_ship') {
+          ctx.fillStyle = 'rgba(255,0,0,0.8)'
+          ctx.fillRect(item.xPos*constant, item.yPos*constant, 2, 2)
+        }
+      })
+      ctx.restore()
     }
   }
 
@@ -1130,6 +1155,9 @@ function main(initCounts) {
       case 32 :
         player.activateConversionCore()
         break
+      case 77 :
+        MINIMAP = MINIMAP?false:true
+        break
     }
   })
 
@@ -1286,6 +1314,7 @@ function start() {
   }
 
   document.getElementById('restartButton').onclick = function() {
+    keepOnTicking = false
     ctx.restore()
     document.getElementById('initDiv').style.display = ""
     document.getElementById('restartDiv').style.display = "none"
