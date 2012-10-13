@@ -1349,6 +1349,14 @@ function start() {
     }
   }
 
+  document.getElementById('howToPlayButton').onclick = function() {
+    document.getElementById('initDiv').style.display = 'none'
+    var foo = document.getElementById('instructionsDiv')
+    foo.style.display = ''
+    foo.style.height = canvas.halfHeight + 145
+    foo.style.width = 500
+  }
+
   document.getElementById('creditsButton').onclick = function() {
     // Hide the main div and set a bunch of events to fire off in due time
     document.getElementById('initDiv').style.display = 'none'
