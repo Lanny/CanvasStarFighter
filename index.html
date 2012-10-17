@@ -1,6 +1,7 @@
 <html>
   <head>
     <title>Bad Ass-teroids</title>
+    <script src="paths.js"></script>
     <script src="main.js"></script>
     <style>
       body {
@@ -19,21 +20,74 @@
         margin : auto;
         color : #707070;
       }
-      #optionsDiv {
+
+      p {
+        color: #999;
+        font-family: sans-serif;
+      }
+
+      img {
+        float: left;
+        margin-right: 4px;
+      }
+
+      .major_div {
         position : absolute;
         left : 50%;
         top : 50%;
-        margin-left : -300px;
+        margin-left : -200px;
         margin-top : -150px;
-        width : 600px;
+        width : 400px;
         height : 300px;
         background-color: transparent;
+        overflow: auto;
+        padding-top: 2px;
+      }
+      .mm_button {
+        position: relative;
+        left : 50%;
+        margin-left : -150px;
+        border: solid;
+        border-width: 1;
+        border-color : #fff;
+        width : 300px;
+        height : 50px;
+        margin-bottom : 10px;
+        text-align : center;
+        color : #707070;
+        background-color: rgba(0,0,0,0.75);
+        vertical-align : middle;
+      }
+      .mm_button_text {
+        line-height : 50px;
+      }
+      #mute_button {
+        position : absolute;
+        bottom : 0px;
+        left : 0px;
+      }
+      #instructionsDiv {
+        background-color: rgba(0,0,0,0.75);
       }
     </style>
   </head>
   <body onload="start()">
     <canvas id="primary_canvas" width="400" height="400"></canvas>
-    <div id="optionsDiv">
+    <div id="initDiv" class="major_div">
+      <div id="startButton" class="mm_button">
+        <span class="mm_button_text">Start</span>
+      </div>
+      <div id="howToPlayButton" class = "mm_button">
+        <span class="mm_button_text">How To Play</span>
+      </div>
+      <div id="optionsButton" class = "mm_button">
+        <span class="mm_button_text">Settings</span>
+      </div>
+      <div id="creditsButton" class = "mm_button">
+        <span class="mm_button_text">Credits</span>
+      </div>
+    </div>
+    <div id="optionsDiv" class="major_div" style="display:none;">
       <table>
         <tr>
           <td>Number of Astroids</td>
@@ -43,6 +97,9 @@
           <td>Number of Enemy Fighters</td>
           <td><input type="text" id="fighter_count" value="5"></td>
         </tr>
+        <tr>
+          <td>Number of Enemy Carriers</td>
+          <td><input type="text" id="carrier_count" value="2"></td>
         <tr>
           <td>Carrier Spawn Interval</td>
           <td><input type="text" id="carrier_spawn_time" value="3"></td>
@@ -69,20 +126,32 @@
         <tr>
           <td>Draw hit circles?</td>
           <td><input type="checkbox" id="draw_hit_circles"></td>
-        <tr>
-          <td>
-            <button id="start_button">Start</button>
-            <button onClick="(function(){
-                              document.getElementById('astroid_count').value = 0;
-                              document.getElementById('fighter_count').value = 0;
-                              document.getElementById('carrier_spawn_time').value = 0;
-                              })()">
-            Sandbox</button>
-
-
-          </td>
         </tr>
       </table>
+      <div id="sandbox_button" class="mm_button">
+        <span class="mm_button_text">Sandbox</span>
+      </div>
+      <div id="optionsToMenuButton" class="mm_button">
+        <span class="mm_button_text">Return</span>
+      </div>
     </div>
+    <div id="restartDiv" class="major_div" style="display:none;">
+      <div id="restartButton" class="mm_button">
+        <span class="mm_button_text">Restart</span>
+      </div>
+    </div>
+    <div id="instructionsDiv" class="major_div" style="display:none;">
+      <p>Oh dang, we're stuck in hostile territory and the enemy (the dreaded red empire) has sent their ships to crush you and the peace loving people of the green republic. Luckily we're not entirely defencless! We have a single class "A" dreadnought capable of deflecting their attacks and destroying their capital ships. Unfortunately though its targeting systems were knocked out in the initial attack. That means it's your duty as our ace pilot and resident badass to scout enemy ships and relay their coordiants back to the dreadnought! Simple, right?</p>
+      <img src="assets/img/dreadnought.png">
+      <p>This is our dreadnought, the only ship we have capable of destroying enemy carriers. His targeting system is out so he needs your help, but he can see local enemy ships, and will fire on them, but is aim is bad so be sure to stay out of the way!</p>
+      <img src="assets/img/carrier.png">
+      <p>And this is what you're up against, an enemy carrier. They deploy new fighters periodically to attack you, so watch out. Your mission is to get close enough to them so that your ships targeting system can lock on. You'll know you're in range when a targeting reticule appears around the carrier. When it reaches its smallest the dreadnought will lock on and fire it's main cannon. You must find all the carriers on the map and eleminate them.</p>
+      <img src="assets/img/fighter.png">
+      <p>And this is an enemy fighter. They're going to be your main source of pain here. There's a lot of them but luckily their pilots suck. They'll take basic evasive manuvers, but if you can get them moving fast enough they'll crash. They do not have conversion cores, but they do have guns. They generally can't hit anything moving at speed, but if you slow down, watch out!</p>
+      <p>Piloting your scout ship is easy. Use the left and right arrow keys to change your ship's facing, and hold the up arrow key to accelerate. 
+      <p>There is a lot of debris floating around and your ship can't survive direct collisions with it. As such we've installed a "conversion core" in your ship. The conversion core is experimental technology that allows you percise control over your ship's momentup. Press and hold the space bar to convert all your current momentum to a new direction. This is essenscial for dodgine enemy fire and navigating at high speeds. Be warned though, the conversion core takes a moment to activate, so be sure to time it right. You can also tap the space bar to bring yourself to a dead stop. This is useful for avoiding debris but will make you an easier target for enemy fighters. One final note, the conversion core is a large piece of equipment, so we couldn't mount any guns on your ship. You'll have to use your superior manuverability to stay safe</p>
+      <div id="howToPlayToMainMenu" class="mm_button">Return To Menu</div>
+    </div>
+    <img id="mute_button" src="assets/img/sound_on.png">
   </body>
 </html>

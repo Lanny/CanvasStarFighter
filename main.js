@@ -8,8 +8,10 @@ DREADNOUGHT_RATE_OF_FIRE = 1000
 CONVERSION_CORE_WARMUP_TIME = 500 // Time in milliseconds that it takes to convert momentum
 FIGHTER_TARGETING_DISTANCE_SQUARED = Math.pow(1000, 2) // Distance that fighters have to be from their target before firing
 CARRIER_SPAWN_TIME = 3 * 1000 // Time between fighter spawns per carrier
+CARRIER_ACQUISITION_TIME = 5 * 1000 // Time it takes for the player to scout a carrier
 X_BOUNDRY = 5000 // Size of the game, passing beyond this distance from 0,0 is lethal
 Y_BOUNDRY = 5000 // Also it's marked with a big red line ;)
+MINIMAP = true
 DRAW_HIT_CIRCLES = false // Draw hit circles for movers
 DEV_MODE = true // Set true for additional debugging and performance stats
 
@@ -27,6 +29,7 @@ function drawHitCircle(target) {
   ctx.beginPath()
   ctx.arc(0, 0, target.colRadius, 0, 2*Math.PI, 1)
   ctx.strokeStyle = 'yellow'
+  ctx.lineWidth = 1
   ctx.stroke()
 
   if (target.colType == 'complex') {
@@ -38,6 +41,58 @@ function drawHitCircle(target) {
       ctx.stroke()
     })
   }
+}
+
+function floatyText(text) {
+  this.initTime = new Date().getTime()
+  this.duration = 5000
+  this.text = stringToPathList(text)
+
+  this.draw = function() {
+    ctx.save()
+    ctx.translate(0,this.yPos)
+    drawFromPathList(this.text)
+    ctx.restore()
+  }
+
+  this.update = function() {
+    this.yPos = canvas.height - (((new Date().getTime() - this.initTime) / this.duration) * canvas.height)
+    if (this.yPos + 70 < 0) otherThingsToDraw.splice(otherThingsToDraw.indexOf(this),1)
+  }
+}
+
+function drawFromPointList(pointList) {
+  ctx.beginPath()
+
+  for (var motionIndex = 0; motionIndex < pointList.length; motionIndex++) {
+    var motion = pointList[motionIndex] 
+    if (motion[2] == 'l') {
+      ctx.lineTo(motion[0], motion[1])
+    }
+    else if (motion[2] == 'm') {
+      ctx.moveTo(motion[0], motion[1])
+    }
+  }
+  ctx.stroke()
+}
+
+function drawFromPathList(pathList) {
+  ctx.translate(canvas.halfWidth - ((pathList.length * 35)/2) - 35,50)
+  ctx.lineWidth = 2
+  ctx.strokeStyle = 'white'
+  for (var letterIndex = 0; letterIndex < pathList.length; letterIndex++) {
+    ctx.translate(35,0)
+    drawFromPointList(pathList[letterIndex])
+  }
+}
+
+function stringToPathList(string) {
+  var foo = string.split('')
+  var returnArray = []
+  for (var i = 0; i < foo.length; i++) {
+    returnArray.push(pathFont[foo[i]])
+  }
+  return returnArray
 }
 
 function LinearMover() {
@@ -140,6 +195,10 @@ function projectile() {
     if (obj.colType == 'projectile') return
     var i = itemsToDraw.lastIndexOf(this)
     itemsToDraw.splice(i, 1) 
+
+    // Call the target's collide method becuase we're removing ourself from
+    // the list, so the second collision won't otherwise register
+    obj.collide(this)
   }
 }
 projectile.prototype = new LinearMover()
@@ -161,11 +220,12 @@ function dreadnoughtProjectile() {
     if (obj.colType == 'projectile' || obj.gameType == "friendly_ship") return
     var i = itemsToDraw.lastIndexOf(this)
     itemsToDraw.splice(i, 1) 
+
+    console.log(obj)
+    obj.collide(this)
   }
 }
 dreadnoughtProjectile.prototype = new LinearMover()
-
-
 
 function enemyFighter() {
   this.colRadius = 15
@@ -265,11 +325,58 @@ function enemyFighter() {
 }
 enemyFighter.prototype = new physMover()
 
+function lazerSpacer(x,y) {
+  this.xSpeed = 0
+  this.ySpeed = 0
+  this.colRadius = 5
+  this.colType = 'simple'
+  this.xPos = x
+  this.yPos = y
+
+  this.draw = function() {
+    if (DRAW_HIT_CIRCLES) {
+      ctx.save()
+      ctx.translate(canvas.halfWidth, canvas.halfHeight)
+      ctx.translate(this.xPos - player.xPos, this.yPos - player.yPos)
+      drawHitCircle(this)
+      ctx.restore()
+    }
+  }
+  this.update = function() {}
+  this.collide = function(obj) {}
+}
+
+function spark(x,y) {
+  this.xSpeed = (0.5 - Math.random()) * 500
+  this.ySpeed = (0.5 - Math.random()) * 500
+  this.xPos = x
+  this.yPos = y
+  this.rotation = Math.atan2(this.ySpeed, this.xSpeed)
+  this.colRadius = 0
+
+  this.duration = 200
+  this.startTime = new Date().getTime()
+
+  this.geometryDraw = function () {
+    ctx.beginPath()
+    ctx.moveTo(5, 0)
+    ctx.lineTo(0,0)
+    ctx.strokeStyle = 'yellow'
+    ctx.lineWidth = 2
+    ctx.stroke()
+  }
+  this.collide = function(obj) {}
+  this.additionalUpdate = function() {
+    if (new Date().getTime() - this.startTime > this.duration) itemsToDraw.splice(itemsToDraw.indexOf(this), 1)
+  }
+}
+spark.prototype = new LinearMover()
+
 function SquareDroid() {
   this.xSpeed = 20
   this.ySpeed = 20
   this.colRadius = 30
-  this.rotationalVelocity = 2
+  this.rotationalVelocity = 0
 
   // Apparenty we have "game types" now. Whatever that means.
   this.gameType = "environmental"
@@ -315,23 +422,106 @@ function enemyCarrier() {
   this.colRadius = 145
   this.lastFighterDeployed = new Date().getTime()
   this.gameType = 'enemy_ship'
+  this.initialAcquisitionTime = null
+  this.isAcquired = false
+
+  this.tertiaryDraw = function() {}
 
   this.additionalUpdate = function() {
     if (!(tickCount % 20)) {
-      // If we don't have a spawn time, carrier becomes passive
-      if (!CARRIER_SPAWN_TIME) return
-
-      // Otherwise check if enough time has passed. If it has then spawn a new fighter
-      if (new Date().getTime() - this.lastFighterDeployed > CARRIER_SPAWN_TIME) {
+      // Check if enough time has passed. If it has then spawn a new fighter.
+      if (new Date().getTime() - this.lastFighterDeployed > CARRIER_SPAWN_TIME && CARRIER_SPAWN_TIME) {
         var insertionX = this.xPos + (Math.cos(this.rotation) * 140)
         var insertionY = this.yPos + (Math.cos(this.rotation) * 140)
         insertObject(enemyFighter, [insertionX, insertionY], 0, [0,0], 0)
         this.lastFighterDeployed = new Date().getTime()
       }
+
+      // While we're here let's check if the player is within range for target acquisition
+      if (!this.initialAcquisitionTime && Math.pow(this.xPos - player.xPos, 2) + Math.pow(this.yPos - player.yPos, 2) < Math.pow(600,2)) {
+        // Player has just moved within range
+        this.initialAcquisitionTime = new Date().getTime()
+
+        // Attach our additional draw function for the circle
+        this.tertiaryDraw = function() {
+          ctx.save()
+          var radius = 600 - 600 * ((new Date().getTime() - this.initialAcquisitionTime) / CARRIER_ACQUISITION_TIME)
+
+          if (radius < 200) {
+            radius = 200
+            if (!this.isAcquired) {
+              this.isAcquired = true
+              dreadnought.fireOnCarrier(this)
+            }
+          }
+
+          ctx.rotate(Math.PI * (radius / 300))
+
+          ctx.lineWidth = 15
+          ctx.strokeStyle = 'magenta'
+          ctx.beginPath()
+          ctx.arc(0, 0, radius, 0, Math.PI - 0.2, false)
+          ctx.stroke()
+
+          ctx.beginPath()
+          ctx.arc(0, 0, radius, Math.PI, 1.5*Math.PI - 0.2, false)
+          ctx.stroke()
+
+          ctx.beginPath()
+          ctx.arc(0, 0, radius, 1.5*Math.PI, 2*Math.PI-0.2, false)
+          ctx.stroke()
+          ctx.restore()
+        }
+      }
+
+      // If the target has been acquired but is now outside of range, cancle our acquisition
+      if (this.initialAcquisitionTime && !this.isAcquired && Math.pow(this.xPos - player.xPos, 2) + Math.pow(this.yPos - player.yPos, 2) > Math.pow(600, 2)) {
+        this.initialAcquisitionTime = null
+        this.tertiaryDraw = function() {}
+      }
+    }
+  }
+
+  this.blowTheFuckUp = function() {
+    this.explosionStartTime = new Date().getTime()
+    // Explosion are of the format [center x, center y, max radius, start time, duration]
+    this._explosions = [[-50,-20,75,500,500], [50,-20,75,0,500], [-25,-25,75,250,500], [50,30,75,300,500], [0,0,150,1500,1000]]
+
+    this.tertiaryDraw = function() {
+      var timeSinceStart = new Date().getTime() - this.explosionStartTime
+      for (var i = 0; i < this._explosions.length; i++) {
+        var currentRadius = this._explosions[i][2] * ((timeSinceStart - this._explosions[i][3]) / this._explosions[i][4])
+        if (1 < currentRadius && currentRadius < this._explosions[i][2]) {
+          ctx.beginPath()
+          ctx.arc(this._explosions[i][0], this._explosions[i][1], currentRadius, 0, 2*Math.PI, false)
+          ctx.lineWidth = 1
+          ctx.strokeStyle = 'red'
+          ctx.stroke()
+        }
+      }
+      if (timeSinceStart > 2000 && timeSinceStart < 5500) {
+        var r = ((timeSinceStart - 2000) / 3000) * 500
+        ctx.beginPath()
+        ctx.arc(0, 0, r, 0, 2*Math.PI, 1)
+        ctx.fillStyle = ctx.createRadialGradient(0,0,0,0,0,r)
+        ctx.fillStyle.addColorStop(0, 'white')
+        ctx.fillStyle.addColorStop(1.0, 'rgba(0,0,0,0)')
+        ctx.fill()
+      }
+
+      if (timeSinceStart > 5000) {
+        insertObject(carrierFrontFragment, [this.xPos + 30, this.yPos], 0, [80,20], 0.5, true)
+        insertObject(carrierBackFragment, [this.xPos - 95, this.yPos], 0, [-50,50], -0.5, true)
+
+        itemsToDraw.splice(itemsToDraw.indexOf(this), 1)
+      }
     }
   }
 
   this.geometryDraw = function() {
+    // This will draw our acquisition circle if applicable
+    this.tertiaryDraw()
+
     ctx.beginPath()
     ctx.moveTo(150, -50)
     ctx.lineTo(150, -10)
@@ -359,11 +549,41 @@ function enemyCarrier() {
     ctx.lineTo(150, -50)
 
     ctx.strokeStyle = 'red'
+    ctx.lineWidth = 1
     ctx.stroke()
   }
 }
 enemyCarrier.prototype = new LinearMover()
 
+function carrierFrontFragment() {
+  this.colType = 'complex'
+  this.colCircleArray = [[0,0,50], [-80,40,15], [95,-25,25]]
+  this.colRadius = 120 
+
+  this.geometryDraw = function() {
+    ctx.lineWidth = 1
+    ctx.strokeStyle = 'red'
+    drawFromPointList(carrierFrontFragmentPath)
+  }
+
+  this.collide = function(target) {
+
+  }
+}
+carrierFrontFragment.prototype = new LinearMover()
+
+function carrierBackFragment() {
+  //this.colType = 'complex'
+  this.colCircleArray = [[0,0,50]]
+  this.colRadius = 50
+
+  this.geometryDraw = function() {
+    ctx.lineWidth = 1
+    ctx.strokeStyle = 'red'
+    drawFromPointList(carrierBackFragmentPath)
+  }
+}
+carrierBackFragment.prototype = new LinearMover()
 
 function friendlyDreadnought() {
   this.colType = 'complex'
@@ -376,8 +596,9 @@ function friendlyDreadnought() {
   this.rateOfFire = DREADNOUGHT_RATE_OF_FIRE
   this.gameType = 'friendly_ship'
 
+  this.additionalDraw = function() {}
+
   this.callMeWhenYouFoundSomethingYouGraveySuckingPigDog = function(foundItem) {
-    // Holy christ this is an ugly line
     if (foundItem.gameType == 'enemy_ship' && this.target == null) {
       this.target = foundItem
     }
@@ -420,51 +641,95 @@ function friendlyDreadnought() {
     itemsToDraw.push(shot)
   }
 
-  this.geometryDraw = function() {
-    ctx.beginPath()
-    ctx.moveTo(150, -20)
-    ctx.lineTo(150, 20)
-    ctx.lineTo(90, 50)
-    ctx.lineTo(50, 50)
-    ctx.lineTo(50, 30)
-    ctx.lineTo(10, 30)
-    ctx.lineTo(10, 50)
-    ctx.lineTo(-20, 50)
-    ctx.lineTo(-20, 45)
-    ctx.lineTo(-50, 45)
-    ctx.lineTo(-50, 50)
-    ctx.lineTo(-80, 50)
-    ctx.lineTo(-80, 45)
-    ctx.lineTo(-110, 45)
-    ctx.lineTo(-110, 50)
-    ctx.lineTo(-140, 50)
-    ctx.lineTo(-140, 40)
-    ctx.lineTo(-130, 40)
-    ctx.lineTo(-130, 20)
-    ctx.lineTo(-140, 20)
-    // Now draw the other side
-    ctx.lineTo(-140, -20)
-    ctx.lineTo(-130, -20)
-    ctx.lineTo(-130, -40)
-    ctx.lineTo(-140, -40)
-    ctx.lineTo(-140, -50)
-    ctx.lineTo(-110, -50)
-    ctx.lineTo(-110, -45)
-    ctx.lineTo(-80, -45)
-    ctx.lineTo(-80, -50)
-    ctx.lineTo(-50, -50)
-    ctx.lineTo(-50, -45)
-    ctx.lineTo(-20, -45)
-    ctx.lineTo(-20, -50)
-    ctx.lineTo(10, -50)
-    ctx.lineTo(10, -30)
-    ctx.lineTo(50, -30)
-    ctx.lineTo(50, -50)
-    ctx.lineTo(90, -50)
-    ctx.lineTo(150, -20)
+  this.fireOnCarrier = function(carrier) {
+    this.target = carrier
 
+    this.gunX = this.xPos + (90 * Math.cos(this.rotation))
+    this.gunY = this.yPos + (90 * Math.sin(this.rotation))
+
+    var deltaX = carrier.xPos - this.gunX
+    var deltaY = carrier.yPos - this.gunY
+    this._distanceToTarget = Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2))
+    this._originalAdditionalUpdate = this.additionalUpdate
+    this.gunRotation = Math.atan2(deltaY, deltaX)
+    this.lazerFireStartTime = new Date().getTime()
+    this.lazerFirePhase = 0
+
+    this.additionalUpdate = function() {
+      var timeSinceStart = new Date().getTime() - this.lazerFireStartTime
+
+      if (this.lazerFirePhase == 0) {
+        this.lazerFirePhase = 1
+        this.additionalDraw = function() {
+          // Draw a thin line as to warn the player that the lazer is about to fire
+          ctx.beginPath()
+          ctx.moveTo(0,0)
+          // Correct for the gun offset from the center of the dreadnought
+          ctx.lineTo(this._distanceToTarget, 0)
+          ctx.lineWidth = 1
+          ctx.strokeStyle = 'blue'
+          ctx.stroke()
+        }
+      }
+
+      if (this.lazerFirePhase == 1 && timeSinceStart > 1500) {
+        this.lazerFirePhase = 2
+        var foo = this._distanceToTarget / 30
+        var cos = Math.cos(this.gunRotation)
+        var sin = Math.sin(this.gunRotation)
+
+        // Lazer spacers serve the function of colliding with things the cross
+        // the lazer
+        this.lazerSpacers = []
+        for (var i = 0; i < foo; i++) {
+          var spacer = new lazerSpacer(this.gunX + (i*30)*cos, this.gunY + (i*30)*sin)
+          this.lazerSpacers.push(spacer)
+          itemsToDraw.push(spacer)
+        }
+
+        this.additionalDraw = function() {
+          var timeSinceStart = new Date().getTime() - this.lazerFireStartTime
+          ctx.lineWidth = ((timeSinceStart - 1500) / 2000) * 20
+          if (ctx.lineWidth > 20) ctx.lineWidth = 20
+          ctx.lineCap = 'round'
+
+          ctx.beginPath()
+          ctx.moveTo(0,0)
+          // Correct for the gun offset from the center of the dreadnought
+          ctx.lineTo(this._distanceToTarget, 0)
+          ctx.strokeStyle = 'red'
+          ctx.stroke()
+
+          if (Math.random() > Math.pow(5000, 0-(1/FPSCounter.avg))) {
+            itemsToDraw.push(new spark(this.target.xPos, this.target.yPos))
+            itemsToDraw.push(new spark(this.target.xPos, this.target.yPos))
+          }
+        }
+      }
+
+      if (this.lazerFirePhase == 2 && timeSinceStart > 3500) {
+        this.lazerFirePhase = 3
+        this.target.blowTheFuckUp()
+      }
+
+      if (this.lazerFirePhase == 3 && timeSinceStart > 5500) {
+        this.lazerFirePhase = null
+        this.target = null
+        this.lazerFireStartTime = null
+        this.additionalDraw = function() {}
+        this.additionalUpdate = this._originalAdditionalUpdate
+
+        this.lazerSpacers.forEach(function(spacer, index, array) {
+          itemsToDraw.splice(itemsToDraw.indexOf(spacer),1)
+        })
+      }
+    }
+  }
+
+  this.geometryDraw = function() {
+    ctx.lineWidth = 1
     ctx.strokeStyle = 'green'
-    ctx.stroke()
+    drawFromPointList(dreadnoughtPath)
 
     // Draw gun
     ctx.translate(90, 0)
@@ -477,8 +742,12 @@ function friendlyDreadnought() {
     ctx.lineTo(30, 5)
     ctx.lineTo(30, -5)
     ctx.lineTo(0,-5)
-    ctx.strokeStyle = 'green'
     ctx.stroke()
+
+    this.additionalDraw()
+    // Undo the gun translation shit
+    ctx.rotate(-this.gunRotation)
+    ctx.translate(-90,0)
   }
 }
 friendlyDreadnought.prototype = new LinearMover()
@@ -519,6 +788,7 @@ function Player() {
   this.rotationalVelocity = 0
   this.colRadius = 15
   this.colType = 'player'
+  this.gameType = 'player'
 
   this.update = function() {
     // Adjust our location
@@ -585,6 +855,30 @@ function Player() {
       ctx.strokeStyle = "red"
       ctx.stroke()
     }
+
+    if (MINIMAP) {
+      ctx.save()
+      var constant = 150 / 5000
+      ctx.translate(canvas.width-300, 0)
+      ctx.fillStyle = 'rgba(255,255,255,0.1)'
+      ctx.fillRect(0,0,300,300)
+      ctx.translate(150, 150)
+      itemsToDraw.forEach(function(item,index,array){
+        if (item.gameType == 'friendly_ship') {
+          ctx.fillStyle = 'rgba(0,255,0,0.8)'
+          ctx.fillRect(item.xPos*constant, item.yPos*constant, 2, 2)
+        }
+        else if (item.gameType == 'player') {
+          ctx.fillStyle = 'rgba(0,0,255,1)'
+          ctx.fillRect(item.xPos*constant, item.yPos*constant, 2, 2)
+        }
+        else if (item.gameType == 'enemy_ship') {
+          ctx.fillStyle = 'rgba(255,0,0,0.8)'
+          ctx.fillRect(item.xPos*constant, item.yPos*constant, 2, 2)
+        }
+      })
+      ctx.restore()
+    }
   }
 
   this.additionalDraw = function() {}
@@ -592,7 +886,7 @@ function Player() {
 
   this.activateConversionCore = function() {
     // If we've already activated a conversion we shouldn't do it again
-    // (Fuck javascript and its broken keydown even)
+    // (Fuck javascript and its broken keydown event)
     if (this.ignoreConversion) {return}
       
     this.conversionStarted = new Date().getTime()
@@ -638,28 +932,35 @@ function Player() {
   }
 
   this.collide = function(type) {
-    // Might called twice becuase I'm a shitty coder
-    if (!keepOnTicking) return
-
-    // We're dead, stop the game
-    keepOnTicking = false
-
+    // We're dead!
     // Turn off game music and play our death tone ("death tone", that sounds badass)
     document.getElementById('game_music').pause()
     document.getElementById('death_music').play()
 
-    // And tell the player that it is so :
-    ctx.font = "42px Verdana"
-    ctx.fillStyle = "#FF0000"
-    
+    // Just cripple the hell out of the player. Let's see how it work...
+    this.xSpeed = 0
+    this.ySpeed = 0
+    this.accelerating = false
+    this.update = function() {}
+    this.colRadius = 0
+
     var possibleText = ['You\'re a crying saucer',
                         'Keep it extra terestri-real',
                         'Looks like you spaced out']
 
     var i = Math.floor(Math.random()*3)
-    var deathText = possibleText[i]
+    this._deathText = possibleText[i]
 
-    ctx.fillText(deathText, (canvas.width/2) - 200, canvas.height/2)
+    // And tell the player that it is so :
+    this.draw = function() {
+      ctx.font = "42px Verdana"
+      ctx.fillStyle = "#FF0000"
+      
+
+      ctx.fillText(this._deathText, (canvas.width/2) - 200, canvas.height/2)
+    }
+
+    document.getElementById('restartDiv').style.display = ""
   }
 }
 
@@ -701,8 +1002,8 @@ function tick() {
   itemsToDraw.forEach(function(item, index, array) {
     item.update()
     // Check that the item hasn't floated beyond the field of battle
-    if (Math.abs(item.yPos) > Y_BOUNDRY) item.collide({colType:"boundry", xSpeed:0, ySpeed:1})
-    if (Math.abs(item.xPos) > X_BOUNDRY) item.collide({colType:"boundry", xSpeed:1, ySpeed:0})
+    if (Math.abs(item.yPos) > Y_BOUNDRY) item.collide({colType:"boundry", collide:function(){}, xSpeed:0, ySpeed:1})
+    if (Math.abs(item.xPos) > X_BOUNDRY) item.collide({colType:"boundry", collide:function(){}, xSpeed:1, ySpeed:0})
 
     // If the item in question is beyond the player's sight don't bother to draw or collision check
     if (Math.abs(item.xPos - player.xPos) > canvas.width || Math.abs(item.yPos - player.yPos) > canvas.height) return
@@ -714,7 +1015,7 @@ function tick() {
       if (item == secondItem) return
 
       var distance = Math.sqrt(Math.pow(Math.abs(item.xPos - secondItem.xPos), 2) + Math.pow(Math.abs(item.yPos - secondItem.yPos), 2))
-      if (distance <= item.colRadius + secondItem.colRadius) {
+      if (distance <= item.colRadius + secondItem.colRadius && item.colRadius && secondItem.colRadius) {
         // Collisions may have happened, definitely in the case of simple 
         // objects, maybe for complex ones
         if (item.colType == "complex" || secondItem.colType == "complex") {
@@ -740,14 +1041,14 @@ function tick() {
             var distance = Math.sqrt(Math.pow(Math.abs(subitem[0] - simpleObj.xPos), 2) + Math.pow(Math.abs(subitem[1] - simpleObj.yPos), 2))
             if (distance <= subitem[2] + simpleObj.colRadius) {
               item.collide(secondItem)
-              secondItem.collide(item)
+              //secondItem.collide(item)
             }
           })
         }
 
         else {
           item.collide(secondItem)
-          secondItem.collide(item)
+          //secondItem.collide(item)
         }
       }
 
@@ -757,6 +1058,10 @@ function tick() {
       }
     })
   })
+
+  // There is a special case where the dreadnought is firing it's lazer where
+  // we have to draw it no matter where the player is.
+  if (dreadnought.lazerFireStartTime) dreadnought.draw()
 
   if (DEV_MODE) {
     ctx.font = "12px Verdana"
@@ -781,11 +1086,12 @@ function tick() {
   setTimeout(tick, 5)
 }
 
-function insertObject(object, loc, rot, vol, rotVol) {
+function insertObject(object, loc, rot, vol, rotVol, ignoreCollisions) {
   var obj = new object()
   // If this gets set to true, we have to try agains with a shift
   var tryAgainFlag = false
 
+  /*
   // Check if our insertion position is clear, and do something about it if not
   itemsToDraw.forEach(function(item, index, array) {
     var distance = Math.sqrt(Math.pow(loc[0] - item.xPos, 2) + Math.pow(loc[1] - item.yPos, 2))
@@ -796,10 +1102,11 @@ function insertObject(object, loc, rot, vol, rotVol) {
     }
   })
 
-  if (tryAgainFlag) {
+  if (tryAgainFlag && !ignoreCollisions) {
     insertObject(object, [loc[0], loc[1]+30], rot, vol, rotVol)
     return
   }
+  */
 
   // Got here? Ok, we're clear to insert
   obj.xPos = loc[0]
@@ -807,7 +1114,7 @@ function insertObject(object, loc, rot, vol, rotVol) {
   obj.rotation = rot
   obj.xSpeed = vol[0]
   obj.ySpeed = vol[1]
-  obj.rotationalVolicity = rotVol
+  obj.rotationalVelocity = rotVol
   itemsToDraw.push(obj)
 
   return obj
@@ -817,8 +1124,20 @@ function main(initCounts) {
   document.getElementById('game_music').play()
   curTime = new Date()
 
+  itemsToDraw = []
+
+  // Set up our capital ships
+  for (var i = 0; i < initCounts.carriers; i++) {
+    // Insert our carrier, and if it's within the dreadnought's search radius, move out
+    var carrier = insertObject(enemyCarrier, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [0,0], 0)
+    while (Math.sqrt(Math.pow(carrier.xPos, 2) + Math.pow(carrier.yPos)) < 1000) carrier.yPos += 100
+  }
+
+  dreadnought = insertObject(friendlyDreadnought, [0,0], 0, [0,0], 0)
+
   // init our player and bind input
   player = new Player()
+  itemsToDraw.push(player)
 
   window.addEventListener('keydown', function(e) {
     switch(e.keyCode) {
@@ -833,6 +1152,9 @@ function main(initCounts) {
         break
       case 32 :
         player.activateConversionCore()
+        break
+      case 77 :
+        MINIMAP = MINIMAP?false:true
         break
     }
   })
@@ -859,7 +1181,6 @@ function main(initCounts) {
     starField.push(newStar)
   }
 
-  itemsToDraw = [player]
   keepOnTicking = true
 
   for (var i = 0; i < initCounts.fighters; i++) {
@@ -870,16 +1191,11 @@ function main(initCounts) {
     insertObject(SquareDroid, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [(Math.random() - 0.5) * 300, (Math.random() - 0.5) * 300], (Math.random() - 0.5) * 2 * Math.PI)
   }
   
-  //Test code
-  insertObject(enemyCarrier, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [0,0], 0)
-  insertObject(enemyCarrier, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [0,0], 0)
-  insertObject(friendlyDreadnought, [0,0], 0, [0,0], 0)
-
+  /*
   // Set up a sexy asteroid collision
   insertObject(SquareDroid, [0,0], 0, [20,-20], 0)
   insertObject(SquareDroid, [-500,500], 0, [100,-100], 50)
-
-  //End test code
+  */
 
   FPSCounter = { size : 0,
                  avg : 0,
@@ -925,7 +1241,7 @@ function start() {
   addAudio('assets/audio/death.mp3', 'death_music', false)
   addAudio('assets/audio/game_music.mp3', 'game_music', true)
 
-  document.getElementById('start_button').onclick = function fireMain() {
+  document.getElementById('startButton').onclick = function fireMain() {
     DEV_MODE = document.getElementById('dev_mode').checked
     DRAW_HIT_CIRCLES = document.getElementById('draw_hit_circles').checked
     X_BOUNDRY = document.getElementById('X_BOUNDRY').value / 2
@@ -935,141 +1251,179 @@ function start() {
     CARRIER_SPAWN_TIME = document.getElementById('carrier_spawn_time').value * 1000
 
     var initCounts = {}
+    initCounts.carriers = document.getElementById('carrier_count').value
     initCounts.fighters = document.getElementById('fighter_count').value
     initCounts.astroids = document.getElementById('astroid_count').value
 
-    document.body.removeChild(document.getElementById('optionsDiv'))
+    // Remove all the major divs (options, init, and so on)
+    var mDivs = document.getElementsByClassName('major_div')
+    for (var i = 0; i < mDivs.length; i++) {
+      mDivs[i].style.display="none"
+      //document.body.removeChild(mDivs[i])
+    }
+
+    localStorage.gameOptions = JSON.stringify({
+      'dev_mode' : document.getElementById('dev_mode').checked,
+      'draw_hit_circles' : document.getElementById('draw_hit_circles').checked,
+      'X_BOUNDRY' : document.getElementById('X_BOUNDRY').value,
+      'Y_BOUNDRY' : document.getElementById('Y_BOUNDRY').value,
+      'star_count' : document.getElementById('star_count').value,
+      'air_friction' : document.getElementById('air_friction').value, 
+      'carrier_spawn_time' : document.getElementById('carrier_spawn_time').value,
+      'carrier_count' : document.getElementById('carrier_count').value,
+      'fighter_count' : document.getElementById('fighter_count').value,
+      'astroid_count' : document.getElementById('astroid_count').value
+    })
+
     menu_music.pause()
     // End the intro screen animation
     introKeepOnTicking = false
     main(initCounts)
   }
 
+  // Set up our options div based on previous play if that data is available
+  if (localStorage.gameOptions) {
+    var gameOptions = JSON.parse(localStorage.gameOptions)
+    for (option in gameOptions) {
+      // Doing this because checkboxes and text fields need to be handled differently
+      if (gameOptions[option] === true || gameOptions[option] === false) {
+        document.getElementById(option).checked = gameOptions[option]
+      } 
+      else {
+        document.getElementById(option).value = gameOptions[option]
+      }
+    }
+  }
+
+  document.getElementById('optionsButton').onclick = function() {
+    // Hide the main menu div, and bring up the options menu
+    document.getElementById('initDiv').style.display = 'none'
+    document.getElementById('optionsDiv').style.display = ''
+  }
+
+  document.getElementById('sandbox_button').onclick = function() {
+    document.getElementById('astroid_count').value = 0
+    document.getElementById('fighter_count').value = 0
+    document.getElementById('carrier_count').value = 0
+    document.getElementById('carrier_spawn_time').value = 0
+  }
+
+  document.getElementById('optionsToMenuButton').onclick = function() {
+    // Return from the options menu to the main menu
+    document.getElementById('optionsDiv').style.display = 'none'
+    document.getElementById('initDiv').style.display = ''
+  }
+
+  document.getElementById('restartButton').onclick = function() {
+    keepOnTicking = false
+    ctx.restore()
+    document.getElementById('initDiv').style.display = ""
+    document.getElementById('restartDiv').style.display = "none"
+    start()
+  }
+
+  // Adjust volume accoring to what is in local storage
+  var audio = document.getElementsByTagName('audio')
+  for (var i = 0; i < audio.length; i++) {
+    audio[i].volume = localStorage.volume?parseFloat(localStorage.volume):1
+  }
+  
+  // And change the button image if need be
+  if (localStorage.volume == 0) document.getElementById('mute_button').src = "assets/img/sound_off.png"
+
+  document.getElementById('mute_button').onclick = function() {
+    if (this.src.match(/.+\/sound_on\.png/)) {
+      localStorage.volume = 0
+      this.src = "assets/img/sound_off.png"
+      var audio = document.getElementsByTagName('audio')
+      for (var i = 0; i < audio.length; i++) {
+        audio[i].volume = 0
+      }
+    }
+    else {
+      localStorage.volume = 1
+      this.src = "assets/img/sound_on.png"
+      var audio = document.getElementsByTagName('audio')
+      for (var i = 0; i < audio.length; i++) {
+        audio[i].volume = 1
+      }
+    }
+  }
+
+  document.getElementById('howToPlayButton').onclick = function() {
+    document.getElementById('initDiv').style.display = 'none'
+    var foo = document.getElementById('instructionsDiv')
+    foo.style.display = ''
+    foo.style.height = canvas.halfHeight + 145
+    foo.style.width = 500
+  }
+
+  document.getElementById('creditsButton').onclick = function() {
+    // Hide the main div and set a bunch of events to fire off in due time
+    document.getElementById('initDiv').style.display = 'none'
+    drawLogo = false
+
+    otherThingsToDraw.push(new floatyText('BADASS MUSIC :'))
+
+    setTimeout(function() {
+      otherThingsToDraw.push(new floatyText('RYAN PALMER'))
+    }, 3000)
+
+    setTimeout(function() {
+      otherThingsToDraw.push(new floatyText('OTHER BADASS THINGS :'))
+    }, 6000)
+
+    setTimeout(function() {
+      otherThingsToDraw.push(new floatyText('RYAN JENKINS'))
+    }, 9000)
+
+    setTimeout(function() {
+      otherThingsToDraw.push(new floatyText('STUFF THAT ISNT BADASS :'))
+    }, 12000)
+
+    setTimeout(function() {
+      otherThingsToDraw.push(new floatyText('JUST KIDDING'))
+    }, 15000)
+
+    setTimeout(function() {
+      otherThingsToDraw.push(new floatyText('ITS ALL BADASS'))
+    }, 16000)
+
+    setTimeout(function() {
+      drawLogo = true
+      document.getElementById('initDiv').style.display = ''
+    }, 22000)
+  }
+
+  // Handle window resizing
+  window.onresize = function() {
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+    canvas.halfWidth = canvas.width/2
+    canvas.halfHeight = canvas.height/2
+  }
+
+  // Add our little "turn red on mouseover" effect to mm_buttons
+  var buttons = document.getElementsByClassName('mm_button')
+  
+  for (var i = 0; i < buttons.length; i++) {
+    var button = buttons[i]
+    button.addEventListener('mouseover', function() {
+      this.style['border-color'] = '#f00'
+    })
+
+    button.addEventListener('mouseout', function() {
+      this.style['border-color'] = '#fff'
+    })
+  }
+
   // Set up and engage the intro screen animation
   // Ugh, this thing is a fucking mess. At least it's gone once the game starts
   starField = []
+  otherThingsToDraw = []
   introKeepOnTicking = true
-  pathFont = { 'A' : [
-               [0,0,'m'],
-               [0,70,'l'],
-               [30,70,'l'],
-               [30,0,'l'],
-               [0,0,'l'],
-               [15,70,'m'],
-               [15,40,'l'],
-               [15,30,'m'],
-               [15,20,'l']],
-  
-               'B' : [
-               [0,0,'m'],
-               [0,70,'l'],
-               [30,70,'l'],
-               [30,0,'l'],
-               [0,0,'l'],
-               [30,35,'m'],
-               [15,35,'l'],
-               [15,10,'m'],
-               [15,25,'l'],
-               [15,45,'m'],
-               [15,60,'l']],
-
-               'D' : [
-               [0,0,'m'],
-               [0,70,'l'],
-               [20,70,'l'],
-               [30,60,'l'],
-               [30,10,'l'],
-               [20,0,'l'],
-               [0,0,'l'],
-               [15,20,'m'],
-               [15,50,'l']],
-
-               'E' : [
-               [0,0,'m'],
-               [0,70,'l'],
-               [30,70,'l'],
-               [30,0,'m'],
-               [0,0,'l'],
-               [30,25,'m'],
-               [15,25,'l'],
-               [30,45,'m'],
-               [15,45,'l'],
-               [30,0,'m'],
-               [30,25,'l'],
-               [25,25,'m'],
-               [25,45,'l'],
-               [30,45,'m'],
-               [30,70,'l']],
-
-               'O' : [
-               [0,0,'m'],
-               [0,70,'l'],
-               [30,70,'l'],
-               [30,0,'l'],
-               [0,0,'l'],
-               [15,20,'m'],
-               [15,50,'l']],
-
-               'I' : [
-               [0,0,'m'],
-               [0,20,'l'],
-               [7.5,20,'l'],
-               [7.5,50,'l'],
-               [0,50,'l'],
-               [0,70,'l'],
-               [30,70,'l'],
-               [30,50,'l'],
-               [22.5,50,'l'],
-               [22.5,20,'l'],
-               [30,20,'l'],
-               [30,0,'l'],
-               [0,0,'l']],
-
-               'R' : [
-               [0,0,'m'],
-               [0,70,'l'],
-               [30,70,'l'],
-               [30,10,'l'],
-               [20,0,'l'],
-               [0,0,'l'],
-               [15,70,'m'],
-               [15,45,'l'],
-               [10,35,'l'],
-               [15,25,'m'],
-               [15,15,'l']],
-
-               'S' : [
-               [0,0,'m'],
-               [0,70,'l'],
-               [30,70,'l'],
-               [30,0,'l'],
-               [0,0,'l'],
-               [30,20,'m'],
-               [15,20,'l'],
-               [15,30,'l'],
-               [0,50,'m'],
-               [15,50,'l'],],
-
-               'T' : [
-               [0,0,'m'],
-               [0,20,'l'],
-               [7.5,20,'l'],
-               [7.5,70,'l'],
-               [22.5,70,'l'],
-               [22.5,20,'l'],
-               [30,20,'l'],
-               [30,0,'l'],
-               [0,0,'l']],
-
-               'Dash' : [
-               [0,25,'m'],
-               [0,45,'l'],
-               [30,45,'l'],
-               [30,25,'l'],
-               [0,25,'l']
-               ]
-             }
-  textCoOrds = [pathFont.B, pathFont.A, pathFont.D, [], pathFont.A, pathFont.S, pathFont.S, pathFont.Dash, pathFont.T, pathFont.E, pathFont.R, pathFont.O, pathFont.I, pathFont.D, pathFont.S]
+  var drawLogo = true
+  logoPathList = stringToPathList('BAD ASS-TEROIDS')
 
   function addIntroScreenStar() {
     var newStar = [(Math.random() - 0.5) * (canvas.width / 4),
@@ -1116,26 +1470,24 @@ function start() {
     })
 
     // Draw out the logo thing!
-    ctx.save()
-    ctx.translate(canvas.halfWidth - ((textCoOrds.length * 35)/2) - 35,50)
-    for (var letterIndex = 0; letterIndex < textCoOrds.length; letterIndex++) {
-      ctx.translate(35,0)
-      ctx.beginPath()
+    if (drawLogo) {
+      ctx.save()
+      drawFromPathList(logoPathList)
+      ctx.restore()
 
-      for (var motionIndex = 0; motionIndex < textCoOrds[letterIndex].length; motionIndex++) {
-        var motion = textCoOrds[letterIndex][motionIndex] 
-        if (motion[2] == 'l') {
-          ctx.lineTo(motion[0], motion[1]);
-        }
-        else if (motion[2] == 'm') {
-          ctx.moveTo(motion[0], motion[1])
-        }
-      }
-      ctx.strokeStyle = 'white'
-      ctx.strokeWidth = 2
-      ctx.stroke()
+      // Slap our lame beta thing on there too why not
+      ctx.save()
+      ctx.translate(193, 75)
+      ctx.strokeStyle = "yellow"
+      drawFromPathList(stringToPathList('BETA'))
+      ctx.restore()
     }
-    ctx.restore()
+
+    // Jenkins you fucking idiot, I hate you. "thing"? God damn son, god damn
+    otherThingsToDraw.forEach(function(thing, index, array) {
+      thing.update()
+      thing.draw()
+    })
 
     setTimeout(initalScreenTick, 5)
   })()
