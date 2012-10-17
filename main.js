@@ -1127,13 +1127,11 @@ function main(initCounts) {
   itemsToDraw = []
 
   // Set up our capital ships
-  for (var i = 0; i < 0; i++) {
+  for (var i = 0; i < initCounts.carriers; i++) {
     // Insert our carrier, and if it's within the dreadnought's search radius, move out
     var carrier = insertObject(enemyCarrier, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [0,0], 0)
     while (Math.sqrt(Math.pow(carrier.xPos, 2) + Math.pow(carrier.yPos)) < 1000) carrier.yPos += 100
   }
-
-  ec = insertObject(enemyCarrier, [2000, 2000], 0, [0,0], 0)
 
   dreadnought = insertObject(friendlyDreadnought, [0,0], 0, [0,0], 0)
 
@@ -1253,6 +1251,7 @@ function start() {
     CARRIER_SPAWN_TIME = document.getElementById('carrier_spawn_time').value * 1000
 
     var initCounts = {}
+    initCounts.carriers = document.getElementById('carrier_count').value
     initCounts.fighters = document.getElementById('fighter_count').value
     initCounts.astroids = document.getElementById('astroid_count').value
 
@@ -1271,6 +1270,7 @@ function start() {
       'star_count' : document.getElementById('star_count').value,
       'air_friction' : document.getElementById('air_friction').value, 
       'carrier_spawn_time' : document.getElementById('carrier_spawn_time').value,
+      'carrier_count' : document.getElementById('carrier_count').value,
       'fighter_count' : document.getElementById('fighter_count').value,
       'astroid_count' : document.getElementById('astroid_count').value
     })
@@ -1304,6 +1304,7 @@ function start() {
   document.getElementById('sandbox_button').onclick = function() {
     document.getElementById('astroid_count').value = 0
     document.getElementById('fighter_count').value = 0
+    document.getElementById('carrier_count').value = 0
     document.getElementById('carrier_spawn_time').value = 0
   }
 
@@ -1324,7 +1325,7 @@ function start() {
   // Adjust volume accoring to what is in local storage
   var audio = document.getElementsByTagName('audio')
   for (var i = 0; i < audio.length; i++) {
-    audio[i].volume = localStorage.volume
+    audio[i].volume = localStorage.volume?parseFloat(localStorage.volume):1
   }
   
   // And change the button image if need be
@@ -1472,6 +1473,13 @@ function start() {
     if (drawLogo) {
       ctx.save()
       drawFromPathList(logoPathList)
+      ctx.restore()
+
+      // Slap our lame beta thing on there too why not
+      ctx.save()
+      ctx.translate(193, 75)
+      ctx.strokeStyle = "yellow"
+      drawFromPathList(stringToPathList('BETA'))
       ctx.restore()
     }
 
