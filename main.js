@@ -95,6 +95,15 @@ function stringToPathList(string) {
   return returnArray
 }
 
+function gameToMainMenu() {
+  keepOnTicking = false
+  ctx.restore()
+  document.getElementById('initDiv').style.display = ""
+  document.getElementById('restartDiv').style.display = "none"
+  start()
+}
+
+
 function LinearMover() {
   this.xSpeed = 0
   this.ySpeed = 0
@@ -944,6 +953,12 @@ function Player() {
     this.update = function() {}
     this.colRadius = 0
 
+    // Pressing enter or space will also restart
+    window.addEventListener('keydown', function(e) {
+      console.log('here')
+      if (e.keyCode == 32 || e.keyCode == 13) gameToMainMenu()
+    })
+
     var possibleText = ['You\'re a crying saucer',
                         'Keep it extra terestri-real',
                         'Looks like you spaced out']
@@ -958,6 +973,28 @@ function Player() {
       
 
       ctx.fillText(this._deathText, (canvas.width/2) - 200, canvas.height/2)
+
+      // Only draw boundry lines if we're close enough to see them
+      if (X_BOUNDRY - canvas.halfWidth < Math.abs(this.xPos)) {
+        // Determine if we're approaching the positive or negative boundry
+        var x = canvas.halfWidth + ((this.xPos>0?X_BOUNDRY:-X_BOUNDRY) - this.xPos)
+        ctx.beginPath()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, canvas.height)
+        ctx.lineWidth=4
+        ctx.strokeStyle = "red"
+        ctx.stroke()
+      }
+
+      if (Y_BOUNDRY - canvas.halfHeight < Math.abs(this.yPos)) {
+        var y = canvas.halfHeight + ((this.yPos>0?Y_BOUNDRY:-Y_BOUNDRY) - this.yPos)
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(canvas.width, y)
+        ctx.lineWidth=4
+        ctx.strokeStyle = "red"
+        ctx.stroke()
+      }
     }
 
     document.getElementById('restartDiv').style.display = ""
@@ -1002,8 +1039,8 @@ function tick() {
   itemsToDraw.forEach(function(item, index, array) {
     item.update()
     // Check that the item hasn't floated beyond the field of battle
-    if (Math.abs(item.yPos) > Y_BOUNDRY) item.collide({colType:"boundry", collide:function(){}, xSpeed:0, ySpeed:1})
-    if (Math.abs(item.xPos) > X_BOUNDRY) item.collide({colType:"boundry", collide:function(){}, xSpeed:1, ySpeed:0})
+    if (Math.abs(item.yPos) > Y_BOUNDRY && item.colRadius) item.collide({colType:"boundry", collide:function(){}, xSpeed:0, ySpeed:1})
+    if (Math.abs(item.xPos) > X_BOUNDRY && item.colRadius) item.collide({colType:"boundry", collide:function(){}, xSpeed:1, ySpeed:0})
 
     // If the item in question is beyond the player's sight don't bother to draw or collision check
     if (Math.abs(item.xPos - player.xPos) > canvas.width || Math.abs(item.yPos - player.yPos) > canvas.height) return
@@ -1314,13 +1351,13 @@ function start() {
     document.getElementById('initDiv').style.display = ''
   }
 
-  document.getElementById('restartButton').onclick = function() {
-    keepOnTicking = false
-    ctx.restore()
-    document.getElementById('initDiv').style.display = ""
-    document.getElementById('restartDiv').style.display = "none"
-    start()
+  document.getElementById('howToPlayToMainMenu').onclick = function() {
+    // Return from the options menu to the main menu
+    document.getElementById('instructionsDiv').style.display = 'none'
+    document.getElementById('initDiv').style.display = ''
   }
+
+  document.getElementById('restartButton').onclick = gameToMainMenu
 
   // Adjust volume accoring to what is in local storage
   var audio = document.getElementsByTagName('audio')
@@ -1358,41 +1395,77 @@ function start() {
     foo.style.width = 500
   }
 
+  document.getElementById('back_to_main_button').onclick = function() {
+    // Stop any future events from firing
+    for (var i = 0; i < creditsTimers.length; i++) clearTimeout(creditsTimers[i])
+      
+    // Clear whatever is already here nad restore the logo
+    otherThingsToDraw = []
+    drawLogo = true
+
+    // And back to the main menu
+    document.getElementById('back_to_main_button').style.display = 'none'
+    document.getElementById('initDiv').style.display = ''
+  }
+
   document.getElementById('creditsButton').onclick = function() {
     // Hide the main div and set a bunch of events to fire off in due time
     document.getElementById('initDiv').style.display = 'none'
+    document.getElementById('back_to_main_button').style.display = ''
     drawLogo = false
+
+    // Track all our events so we can kill them early later if we need to
+    creditsTimers = []
+
+    otherThingsToDraw.push({update : function(){},
+                            draw : function() {
+                              ctx.beginPath()
+                              ctx.moveTo(0,21)
+                              ctx.lineTo(20,1)
+                              ctx.lineTo(20,11)
+                              ctx.lineTo(40,11)
+                              ctx.moveTo(0,21)
+                              ctx.lineTo(20,41)
+                              ctx.lineTo(20,31)
+                              ctx.lineTo(40,31)
+
+                              ctx.strokeStyle = 'white'
+                              ctx.lineWidth = 1
+                              ctx.stroke()
+                            }})
 
     otherThingsToDraw.push(new floatyText('BADASS MUSIC :'))
 
-    setTimeout(function() {
+    creditsTimers.push(setTimeout(function() {
       otherThingsToDraw.push(new floatyText('RYAN PALMER'))
-    }, 3000)
+    }, 3000))
 
-    setTimeout(function() {
+    creditsTimers.push(setTimeout(function() {
       otherThingsToDraw.push(new floatyText('OTHER BADASS THINGS :'))
-    }, 6000)
+    }, 6000))
 
-    setTimeout(function() {
+    creditsTimers.push(setTimeout(function() {
       otherThingsToDraw.push(new floatyText('RYAN JENKINS'))
-    }, 9000)
+    }, 9000))
 
-    setTimeout(function() {
+    creditsTimers.push(setTimeout(function() {
       otherThingsToDraw.push(new floatyText('STUFF THAT ISNT BADASS :'))
-    }, 12000)
+    }, 12000))
 
-    setTimeout(function() {
+    creditsTimers.push(setTimeout(function() {
       otherThingsToDraw.push(new floatyText('JUST KIDDING'))
-    }, 15000)
+    }, 15000))
 
-    setTimeout(function() {
+    creditsTimers.push(setTimeout(function() {
       otherThingsToDraw.push(new floatyText('ITS ALL BADASS'))
-    }, 16000)
+    }, 16000))
 
-    setTimeout(function() {
+    creditsTimers.push(setTimeout(function() {
       drawLogo = true
+      otherThingsToDraw = []
       document.getElementById('initDiv').style.display = ''
-    }, 22000)
+      document.getElementById('back_to_main_button').style.display = 'none'
+    }, 22000))
   }
 
   // Handle window resizing
@@ -1405,9 +1478,14 @@ function start() {
 
   // Add our little "turn red on mouseover" effect to mm_buttons
   var buttons = document.getElementsByClassName('mm_button')
+
+  // Add any other buttons that aren't of the mm_button class
+  var mousers = [document.getElementById('back_to_main_button')]
+  for (var i = 0; i < buttons.length; i++) mousers.push(buttons[i])
   
-  for (var i = 0; i < buttons.length; i++) {
-    var button = buttons[i]
+  // And tack on the listeners
+  for (var i = 0; i < mousers.length; i++) {
+    var button = mousers[i]
     button.addEventListener('mouseover', function() {
       this.style['border-color'] = '#f00'
     })

@@ -61,6 +61,16 @@
       .mm_button_text {
         line-height : 50px;
       }
+      #back_to_main_button {
+        width : 40px;
+        height : 40px;
+        position : absolute;
+        border : solid;
+        border-radius : 20px;
+        border-color : #fff;
+        border-width : 1px;
+        z-index : 999;
+      }
       #mute_button {
         position : absolute;
         bottom : 0px;
@@ -149,9 +159,12 @@
       <img src="assets/img/fighter.png">
       <p>And this is an enemy fighter. They're going to be your main source of pain here. There's a lot of them but luckily their pilots suck. They'll take basic evasive manuvers, but if you can get them moving fast enough they'll crash. They do not have conversion cores, but they do have guns. They generally can't hit anything moving at speed, but if you slow down, watch out!</p>
       <p>Piloting your scout ship is easy. Use the left and right arrow keys to change your ship's facing, and hold the up arrow key to accelerate. 
-      <p>There is a lot of debris floating around and your ship can't survive direct collisions with it. As such we've installed a "conversion core" in your ship. The conversion core is experimental technology that allows you percise control over your ship's momentup. Press and hold the space bar to convert all your current momentum to a new direction. This is essenscial for dodgine enemy fire and navigating at high speeds. Be warned though, the conversion core takes a moment to activate, so be sure to time it right. You can also tap the space bar to bring yourself to a dead stop. This is useful for avoiding debris but will make you an easier target for enemy fighters. One final note, the conversion core is a large piece of equipment, so we couldn't mount any guns on your ship. You'll have to use your superior manuverability to stay safe</p>
-      <div id="howToPlayToMainMenu" class="mm_button">Return To Menu</div>
+      <p>There is a lot of debris floating around and your ship can't survive direct collisions with it. As such we've installed a "conversion core" in your ship. The conversion core is experimental technology that allows you percise control over your ship's momentup. Press and hold the space bar to convert all your current momentum to a new direction. This is essenscial for dodging enemy fire and navigating at high speeds. Be warned though, the conversion core takes a moment to activate, so be sure to time it right. You can also tap the space bar to bring yourself to a dead stop. This is useful for avoiding debris but will make you an easier target for enemy fighters. One final note, the conversion core is a large piece of equipment, so we couldn't mount any guns on your ship. You'll have to use your superior manuverability to stay safe</p>
+      <div id="howToPlayToMainMenu" class="mm_button">
+        <span class="mm_button_text">Return To Menu</span>
+      </div>
     </div>
+    <div id="back_to_main_button" style="display:none;"></div>
     <img id="mute_button" src="assets/img/sound_on.png">
   </body>
 </html>
