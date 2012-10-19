@@ -608,7 +608,7 @@ function friendlyDreadnought() {
   this.additionalDraw = function() {}
 
   this.callMeWhenYouFoundSomethingYouGraveySuckingPigDog = function(foundItem) {
-    if (foundItem.gameType == 'enemy_ship' && this.target == null) {
+    if (foundItem.gameType == 'enemy_ship' && foundItem.colType != 'complex' && this.target == null) {
       this.target = foundItem
     }
   }
