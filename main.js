@@ -95,6 +95,16 @@ function stringToPathList(string) {
   return returnArray
 }
 
+function gameToMainMenu() {
+  keepOnTicking = false
+  ctx.restore()
+  document.getElementById('initDiv').style.display = ""
+  document.getElementById('restartDiv').style.display = "none"
+  document.getElementById('game_music').pause()
+  start()
+}
+
+
 function LinearMover() {
   this.xSpeed = 0
   this.ySpeed = 0
@@ -599,7 +609,7 @@ function friendlyDreadnought() {
   this.additionalDraw = function() {}
 
   this.callMeWhenYouFoundSomethingYouGraveySuckingPigDog = function(foundItem) {
-    if (foundItem.gameType == 'enemy_ship' && this.target == null) {
+    if (foundItem.gameType == 'enemy_ship' && foundItem.colType != 'complex' && this.target == null) {
       this.target = foundItem
     }
   }
@@ -869,7 +879,7 @@ function Player() {
           ctx.fillRect(item.xPos*constant, item.yPos*constant, 2, 2)
         }
         else if (item.gameType == 'player') {
-          ctx.fillStyle = 'rgba(0,0,255,1)'
+          ctx.fillStyle = 'rgba(100,100,255,1)'
           ctx.fillRect(item.xPos*constant, item.yPos*constant, 2, 2)
         }
         else if (item.gameType == 'enemy_ship') {
@@ -933,9 +943,9 @@ function Player() {
 
   this.collide = function(type) {
     // We're dead!
-    // Turn off game music and play our death tone ("death tone", that sounds badass)
-    document.getElementById('game_music').pause()
-    document.getElementById('death_music').play()
+    // Uncomment the next lines to turn off game music and play our death tone
+    //document.getElementById('game_music').pause()
+    //document.getElementById('death_music').play()
 
     // Just cripple the hell out of the player. Let's see how it work...
     this.xSpeed = 0
@@ -943,6 +953,14 @@ function Player() {
     this.accelerating = false
     this.update = function() {}
     this.colRadius = 0
+
+    // Pressing enter or space will also restart
+    window.addEventListener('keydown', function spaceBarToMainMenu(e) {
+      if (e.keyCode == 13) {
+        window.removeEventListener('keydown', spaceBarToMainMenu)
+        gameToMainMenu()
+      }
+    })
 
     var possibleText = ['You\'re a crying saucer',
                         'Keep it extra terestri-real',
@@ -958,6 +976,28 @@ function Player() {
       
 
       ctx.fillText(this._deathText, (canvas.width/2) - 200, canvas.height/2)
+
+      // Only draw boundry lines if we're close enough to see them
+      if (X_BOUNDRY - canvas.halfWidth < Math.abs(this.xPos)) {
+        // Determine if we're approaching the positive or negative boundry
+        var x = canvas.halfWidth + ((this.xPos>0?X_BOUNDRY:-X_BOUNDRY) - this.xPos)
+        ctx.beginPath()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, canvas.height)
+        ctx.lineWidth=4
+        ctx.strokeStyle = "red"
+        ctx.stroke()
+      }
+
+      if (Y_BOUNDRY - canvas.halfHeight < Math.abs(this.yPos)) {
+        var y = canvas.halfHeight + ((this.yPos>0?Y_BOUNDRY:-Y_BOUNDRY) - this.yPos)
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(canvas.width, y)
+        ctx.lineWidth=4
+        ctx.strokeStyle = "red"
+        ctx.stroke()
+      }
     }
 
     document.getElementById('restartDiv').style.display = ""
@@ -1002,8 +1042,8 @@ function tick() {
   itemsToDraw.forEach(function(item, index, array) {
     item.update()
     // Check that the item hasn't floated beyond the field of battle
-    if (Math.abs(item.yPos) > Y_BOUNDRY) item.collide({colType:"boundry", collide:function(){}, xSpeed:0, ySpeed:1})
-    if (Math.abs(item.xPos) > X_BOUNDRY) item.collide({colType:"boundry", collide:function(){}, xSpeed:1, ySpeed:0})
+    if (Math.abs(item.yPos) > Y_BOUNDRY && item.colRadius) item.collide({colType:"boundry", collide:function(){}, xSpeed:0, ySpeed:1})
+    if (Math.abs(item.xPos) > X_BOUNDRY && item.colRadius) item.collide({colType:"boundry", collide:function(){}, xSpeed:1, ySpeed:0})
 
     // If the item in question is beyond the player's sight don't bother to draw or collision check
     if (Math.abs(item.xPos - player.xPos) > canvas.width || Math.abs(item.yPos - player.yPos) > canvas.height) return
@@ -1091,7 +1131,6 @@ function insertObject(object, loc, rot, vol, rotVol, ignoreCollisions) {
   // If this gets set to true, we have to try agains with a shift
   var tryAgainFlag = false
 
-  /*
   // Check if our insertion position is clear, and do something about it if not
   itemsToDraw.forEach(function(item, index, array) {
     var distance = Math.sqrt(Math.pow(loc[0] - item.xPos, 2) + Math.pow(loc[1] - item.yPos, 2))
@@ -1106,7 +1145,6 @@ function insertObject(object, loc, rot, vol, rotVol, ignoreCollisions) {
     insertObject(object, [loc[0], loc[1]+30], rot, vol, rotVol)
     return
   }
-  */
 
   // Got here? Ok, we're clear to insert
   obj.xPos = loc[0]
@@ -1121,7 +1159,9 @@ function insertObject(object, loc, rot, vol, rotVol, ignoreCollisions) {
 }
 
 function main(initCounts) {
+  document.getElementById('menu_music').pause()
   document.getElementById('game_music').play()
+  document.getElementById('game_music').currentTime = 0
   curTime = new Date()
 
   itemsToDraw = []
@@ -1205,8 +1245,64 @@ function main(initCounts) {
   tick()
 }
 
+// Call this to... call main? Well it made sense at one point
+function fireMain() {
+  // Do this because we may have been called from an event listener
+  window.removeEventListener('keydown', fireMainOnReturn)
+
+  // Now set up our globals
+  DEV_MODE = document.getElementById('dev_mode').checked
+  DRAW_HIT_CIRCLES = document.getElementById('draw_hit_circles').checked
+  X_BOUNDRY = document.getElementById('X_BOUNDRY').value / 2
+  Y_BOUNDRY = document.getElementById('Y_BOUNDRY').value / 2
+  NUMBER_OF_STARS = document.getElementById('star_count').value 
+  GLOBAL_AIR_FRICTION = document.getElementById('air_friction').value 
+  CARRIER_SPAWN_TIME = document.getElementById('carrier_spawn_time').value * 1000
+
+  // And initcounts
+  var initCounts = {}
+  initCounts.carriers = document.getElementById('carrier_count').value
+  initCounts.fighters = document.getElementById('fighter_count').value
+  initCounts.astroids = document.getElementById('astroid_count').value
+
+  // Remove all the major divs (options, init, and so on)
+  var mDivs = document.getElementsByClassName('major_div')
+  for (var i = 0; i < mDivs.length; i++) {
+    mDivs[i].style.display="none"
+    //document.body.removeChild(mDivs[i])
+  }
+
+  localStorage.gameOptions = JSON.stringify({
+    'dev_mode' : document.getElementById('dev_mode').checked,
+    'draw_hit_circles' : document.getElementById('draw_hit_circles').checked,
+    'X_BOUNDRY' : document.getElementById('X_BOUNDRY').value,
+    'Y_BOUNDRY' : document.getElementById('Y_BOUNDRY').value,
+    'star_count' : document.getElementById('star_count').value,
+    'air_friction' : document.getElementById('air_friction').value, 
+    'carrier_spawn_time' : document.getElementById('carrier_spawn_time').value,
+    'carrier_count' : document.getElementById('carrier_count').value,
+    'fighter_count' : document.getElementById('fighter_count').value,
+    'astroid_count' : document.getElementById('astroid_count').value
+  })
+
+  // End the intro screen animation
+  introKeepOnTicking = false
+  main(initCounts)
+}
+
+function fireMainOnReturn(e) { if (e.keyCode == 13) fireMain() }
+
 function addAudio(sauce, id, loop) {
   // Create a new audio element
+
+  // Check if this has already been added
+  if (document.getElementById(id)) {
+    audio = document.getElementById(id)
+    audio.currentTime = 0
+    return audio
+  }
+
+  // No? OK, let's do it
   var audio = document.createElement('audio')
   audio.setAttribute('src', sauce)
   audio.setAttribute('preload', 'auto')
@@ -1234,53 +1330,18 @@ function start() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Start the music
-  var menu_music = addAudio('assets/audio/menu_music.mp3', 'menu_music', true)
-  menu_music.play()
+  var music = addAudio('assets/audio/menu_music.mp3', 'menu_music', true)
+  music.play()
 
   // Preload our other music
   addAudio('assets/audio/death.mp3', 'death_music', false)
   addAudio('assets/audio/game_music.mp3', 'game_music', true)
 
-  document.getElementById('startButton').onclick = function fireMain() {
-    DEV_MODE = document.getElementById('dev_mode').checked
-    DRAW_HIT_CIRCLES = document.getElementById('draw_hit_circles').checked
-    X_BOUNDRY = document.getElementById('X_BOUNDRY').value / 2
-    Y_BOUNDRY = document.getElementById('Y_BOUNDRY').value / 2
-    NUMBER_OF_STARS = document.getElementById('star_count').value 
-    GLOBAL_AIR_FRICTION = document.getElementById('air_friction').value 
-    CARRIER_SPAWN_TIME = document.getElementById('carrier_spawn_time').value * 1000
+  // Start the game when the start button is pressed, duh!
+  document.getElementById('startButton').onclick = fireMain
 
-    var initCounts = {}
-    initCounts.carriers = document.getElementById('carrier_count').value
-    initCounts.fighters = document.getElementById('fighter_count').value
-    initCounts.astroids = document.getElementById('astroid_count').value
-
-    // Remove all the major divs (options, init, and so on)
-    var mDivs = document.getElementsByClassName('major_div')
-    for (var i = 0; i < mDivs.length; i++) {
-      mDivs[i].style.display="none"
-      //document.body.removeChild(mDivs[i])
-    }
-
-    localStorage.gameOptions = JSON.stringify({
-      'dev_mode' : document.getElementById('dev_mode').checked,
-      'draw_hit_circles' : document.getElementById('draw_hit_circles').checked,
-      'X_BOUNDRY' : document.getElementById('X_BOUNDRY').value,
-      'Y_BOUNDRY' : document.getElementById('Y_BOUNDRY').value,
-      'star_count' : document.getElementById('star_count').value,
-      'air_friction' : document.getElementById('air_friction').value, 
-      'carrier_spawn_time' : document.getElementById('carrier_spawn_time').value,
-      'carrier_count' : document.getElementById('carrier_count').value,
-      'fighter_count' : document.getElementById('fighter_count').value,
-      'astroid_count' : document.getElementById('astroid_count').value
-    })
-
-    menu_music.pause()
-    // End the intro screen animation
-    introKeepOnTicking = false
-    main(initCounts)
-  }
-
+  // Make return do the same thing as clicking start :
+  window.addEventListener('keydown', fireMainOnReturn)
   // Set up our options div based on previous play if that data is available
   if (localStorage.gameOptions) {
     var gameOptions = JSON.parse(localStorage.gameOptions)
@@ -1314,13 +1375,13 @@ function start() {
     document.getElementById('initDiv').style.display = ''
   }
 
-  document.getElementById('restartButton').onclick = function() {
-    keepOnTicking = false
-    ctx.restore()
-    document.getElementById('initDiv').style.display = ""
-    document.getElementById('restartDiv').style.display = "none"
-    start()
+  document.getElementById('howToPlayToMainMenu').onclick = function() {
+    // Return from the options menu to the main menu
+    document.getElementById('instructionsDiv').style.display = 'none'
+    document.getElementById('initDiv').style.display = ''
   }
+
+  document.getElementById('restartButton').onclick = gameToMainMenu
 
   // Adjust volume accoring to what is in local storage
   var audio = document.getElementsByTagName('audio')
@@ -1358,41 +1419,77 @@ function start() {
     foo.style.width = 500
   }
 
+  document.getElementById('back_to_main_button').onclick = function() {
+    // Stop any future events from firing
+    for (var i = 0; i < creditsTimers.length; i++) clearTimeout(creditsTimers[i])
+      
+    // Clear whatever is already here nad restore the logo
+    otherThingsToDraw = []
+    drawLogo = true
+
+    // And back to the main menu
+    document.getElementById('back_to_main_button').style.display = 'none'
+    document.getElementById('initDiv').style.display = ''
+  }
+
   document.getElementById('creditsButton').onclick = function() {
     // Hide the main div and set a bunch of events to fire off in due time
     document.getElementById('initDiv').style.display = 'none'
+    document.getElementById('back_to_main_button').style.display = ''
     drawLogo = false
+
+    // Track all our events so we can kill them early later if we need to
+    creditsTimers = []
+
+    otherThingsToDraw.push({update : function(){},
+                            draw : function() {
+                              ctx.beginPath()
+                              ctx.moveTo(0,21)
+                              ctx.lineTo(20,1)
+                              ctx.lineTo(20,11)
+                              ctx.lineTo(40,11)
+                              ctx.moveTo(0,21)
+                              ctx.lineTo(20,41)
+                              ctx.lineTo(20,31)
+                              ctx.lineTo(40,31)
+
+                              ctx.strokeStyle = 'white'
+                              ctx.lineWidth = 1
+                              ctx.stroke()
+                            }})
 
     otherThingsToDraw.push(new floatyText('BADASS MUSIC :'))
 
-    setTimeout(function() {
+    creditsTimers.push(setTimeout(function() {
       otherThingsToDraw.push(new floatyText('RYAN PALMER'))
-    }, 3000)
+    }, 3000))
 
-    setTimeout(function() {
+    creditsTimers.push(setTimeout(function() {
       otherThingsToDraw.push(new floatyText('OTHER BADASS THINGS :'))
-    }, 6000)
+    }, 6000))
 
-    setTimeout(function() {
+    creditsTimers.push(setTimeout(function() {
       otherThingsToDraw.push(new floatyText('RYAN JENKINS'))
-    }, 9000)
+    }, 9000))
 
-    setTimeout(function() {
+    creditsTimers.push(setTimeout(function() {
       otherThingsToDraw.push(new floatyText('STUFF THAT ISNT BADASS :'))
-    }, 12000)
+    }, 12000))
 
-    setTimeout(function() {
+    creditsTimers.push(setTimeout(function() {
       otherThingsToDraw.push(new floatyText('JUST KIDDING'))
-    }, 15000)
+    }, 15000))
 
-    setTimeout(function() {
+    creditsTimers.push(setTimeout(function() {
       otherThingsToDraw.push(new floatyText('ITS ALL BADASS'))
-    }, 16000)
+    }, 16000))
 
-    setTimeout(function() {
+    creditsTimers.push(setTimeout(function() {
       drawLogo = true
+      otherThingsToDraw = []
       document.getElementById('initDiv').style.display = ''
-    }, 22000)
+      document.getElementById('back_to_main_button').style.display = 'none'
+    }, 22000))
   }
 
   // Handle window resizing
@@ -1405,9 +1502,14 @@ function start() {
 
   // Add our little "turn red on mouseover" effect to mm_buttons
   var buttons = document.getElementsByClassName('mm_button')
+
+  // Add any other buttons that aren't of the mm_button class
+  var mousers = [document.getElementById('back_to_main_button')]
+  for (var i = 0; i < buttons.length; i++) mousers.push(buttons[i])
   
-  for (var i = 0; i < buttons.length; i++) {
-    var button = buttons[i]
+  // And tack on the listeners
+  for (var i = 0; i < mousers.length; i++) {
+    var button = mousers[i]
     button.addEventListener('mouseover', function() {
       this.style['border-color'] = '#f00'
     })
