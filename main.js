@@ -100,6 +100,7 @@ function gameToMainMenu() {
   ctx.restore()
   document.getElementById('initDiv').style.display = ""
   document.getElementById('restartDiv').style.display = "none"
+  document.getElementById('game_music').pause()
   start()
 }
 
@@ -878,7 +879,7 @@ function Player() {
           ctx.fillRect(item.xPos*constant, item.yPos*constant, 2, 2)
         }
         else if (item.gameType == 'player') {
-          ctx.fillStyle = 'rgba(0,0,255,1)'
+          ctx.fillStyle = 'rgba(100,100,255,1)'
           ctx.fillRect(item.xPos*constant, item.yPos*constant, 2, 2)
         }
         else if (item.gameType == 'enemy_ship') {
@@ -942,9 +943,9 @@ function Player() {
 
   this.collide = function(type) {
     // We're dead!
-    // Turn off game music and play our death tone ("death tone", that sounds badass)
-    document.getElementById('game_music').pause()
-    document.getElementById('death_music').play()
+    // Uncomment the next lines to turn off game music and play our death tone
+    //document.getElementById('game_music').pause()
+    //document.getElementById('death_music').play()
 
     // Just cripple the hell out of the player. Let's see how it work...
     this.xSpeed = 0
@@ -954,9 +955,11 @@ function Player() {
     this.colRadius = 0
 
     // Pressing enter or space will also restart
-    window.addEventListener('keydown', function(e) {
-      console.log('here')
-      if (e.keyCode == 32 || e.keyCode == 13) gameToMainMenu()
+    window.addEventListener('keydown', function spaceBarToMainMenu(e) {
+      if (e.keyCode == 13) {
+        window.removeEventListener('keydown', spaceBarToMainMenu)
+        gameToMainMenu()
+      }
     })
 
     var possibleText = ['You\'re a crying saucer',
@@ -1128,7 +1131,6 @@ function insertObject(object, loc, rot, vol, rotVol, ignoreCollisions) {
   // If this gets set to true, we have to try agains with a shift
   var tryAgainFlag = false
 
-  /*
   // Check if our insertion position is clear, and do something about it if not
   itemsToDraw.forEach(function(item, index, array) {
     var distance = Math.sqrt(Math.pow(loc[0] - item.xPos, 2) + Math.pow(loc[1] - item.yPos, 2))
@@ -1143,7 +1145,6 @@ function insertObject(object, loc, rot, vol, rotVol, ignoreCollisions) {
     insertObject(object, [loc[0], loc[1]+30], rot, vol, rotVol)
     return
   }
-  */
 
   // Got here? Ok, we're clear to insert
   obj.xPos = loc[0]
@@ -1158,7 +1159,9 @@ function insertObject(object, loc, rot, vol, rotVol, ignoreCollisions) {
 }
 
 function main(initCounts) {
+  document.getElementById('menu_music').pause()
   document.getElementById('game_music').play()
+  document.getElementById('game_music').currentTime = 0
   curTime = new Date()
 
   itemsToDraw = []
@@ -1242,8 +1245,64 @@ function main(initCounts) {
   tick()
 }
 
+// Call this to... call main? Well it made sense at one point
+function fireMain() {
+  // Do this because we may have been called from an event listener
+  window.removeEventListener('keydown', fireMainOnReturn)
+
+  // Now set up our globals
+  DEV_MODE = document.getElementById('dev_mode').checked
+  DRAW_HIT_CIRCLES = document.getElementById('draw_hit_circles').checked
+  X_BOUNDRY = document.getElementById('X_BOUNDRY').value / 2
+  Y_BOUNDRY = document.getElementById('Y_BOUNDRY').value / 2
+  NUMBER_OF_STARS = document.getElementById('star_count').value 
+  GLOBAL_AIR_FRICTION = document.getElementById('air_friction').value 
+  CARRIER_SPAWN_TIME = document.getElementById('carrier_spawn_time').value * 1000
+
+  // And initcounts
+  var initCounts = {}
+  initCounts.carriers = document.getElementById('carrier_count').value
+  initCounts.fighters = document.getElementById('fighter_count').value
+  initCounts.astroids = document.getElementById('astroid_count').value
+
+  // Remove all the major divs (options, init, and so on)
+  var mDivs = document.getElementsByClassName('major_div')
+  for (var i = 0; i < mDivs.length; i++) {
+    mDivs[i].style.display="none"
+    //document.body.removeChild(mDivs[i])
+  }
+
+  localStorage.gameOptions = JSON.stringify({
+    'dev_mode' : document.getElementById('dev_mode').checked,
+    'draw_hit_circles' : document.getElementById('draw_hit_circles').checked,
+    'X_BOUNDRY' : document.getElementById('X_BOUNDRY').value,
+    'Y_BOUNDRY' : document.getElementById('Y_BOUNDRY').value,
+    'star_count' : document.getElementById('star_count').value,
+    'air_friction' : document.getElementById('air_friction').value, 
+    'carrier_spawn_time' : document.getElementById('carrier_spawn_time').value,
+    'carrier_count' : document.getElementById('carrier_count').value,
+    'fighter_count' : document.getElementById('fighter_count').value,
+    'astroid_count' : document.getElementById('astroid_count').value
+  })
+
+  // End the intro screen animation
+  introKeepOnTicking = false
+  main(initCounts)
+}
+
+function fireMainOnReturn(e) { if (e.keyCode == 13) fireMain() }
+
 function addAudio(sauce, id, loop) {
   // Create a new audio element
+
+  // Check if this has already been added
+  if (document.getElementById(id)) {
+    audio = document.getElementById(id)
+    audio.currentTime = 0
+    return audio
+  }
+
+  // No? OK, let's do it
   var audio = document.createElement('audio')
   audio.setAttribute('src', sauce)
   audio.setAttribute('preload', 'auto')
@@ -1271,53 +1330,18 @@ function start() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Start the music
-  var menu_music = addAudio('assets/audio/menu_music.mp3', 'menu_music', true)
-  menu_music.play()
+  var music = addAudio('assets/audio/menu_music.mp3', 'menu_music', true)
+  music.play()
 
   // Preload our other music
   addAudio('assets/audio/death.mp3', 'death_music', false)
   addAudio('assets/audio/game_music.mp3', 'game_music', true)
 
-  document.getElementById('startButton').onclick = function fireMain() {
-    DEV_MODE = document.getElementById('dev_mode').checked
-    DRAW_HIT_CIRCLES = document.getElementById('draw_hit_circles').checked
-    X_BOUNDRY = document.getElementById('X_BOUNDRY').value / 2
-    Y_BOUNDRY = document.getElementById('Y_BOUNDRY').value / 2
-    NUMBER_OF_STARS = document.getElementById('star_count').value 
-    GLOBAL_AIR_FRICTION = document.getElementById('air_friction').value 
-    CARRIER_SPAWN_TIME = document.getElementById('carrier_spawn_time').value * 1000
+  // Start the game when the start button is pressed, duh!
+  document.getElementById('startButton').onclick = fireMain
 
-    var initCounts = {}
-    initCounts.carriers = document.getElementById('carrier_count').value
-    initCounts.fighters = document.getElementById('fighter_count').value
-    initCounts.astroids = document.getElementById('astroid_count').value
-
-    // Remove all the major divs (options, init, and so on)
-    var mDivs = document.getElementsByClassName('major_div')
-    for (var i = 0; i < mDivs.length; i++) {
-      mDivs[i].style.display="none"
-      //document.body.removeChild(mDivs[i])
-    }
-
-    localStorage.gameOptions = JSON.stringify({
-      'dev_mode' : document.getElementById('dev_mode').checked,
-      'draw_hit_circles' : document.getElementById('draw_hit_circles').checked,
-      'X_BOUNDRY' : document.getElementById('X_BOUNDRY').value,
-      'Y_BOUNDRY' : document.getElementById('Y_BOUNDRY').value,
-      'star_count' : document.getElementById('star_count').value,
-      'air_friction' : document.getElementById('air_friction').value, 
-      'carrier_spawn_time' : document.getElementById('carrier_spawn_time').value,
-      'carrier_count' : document.getElementById('carrier_count').value,
-      'fighter_count' : document.getElementById('fighter_count').value,
-      'astroid_count' : document.getElementById('astroid_count').value
-    })
-
-    menu_music.pause()
-    // End the intro screen animation
-    introKeepOnTicking = false
-    main(initCounts)
-  }
-
+  // Make return do the same thing as clicking start :
+  window.addEventListener('keydown', fireMainOnReturn)
   // Set up our options div based on previous play if that data is available
   if (localStorage.gameOptions) {
     var gameOptions = JSON.parse(localStorage.gameOptions)
