@@ -509,6 +509,7 @@ function enemyCarrier() {
           ctx.stroke()
         }
       }
+
       if (timeSinceStart > 2000 && timeSinceStart < 5500) {
         var r = ((timeSinceStart - 2000) / 3000) * 500
         ctx.beginPath()
@@ -520,10 +521,14 @@ function enemyCarrier() {
       }
 
       if (timeSinceStart > 5000) {
+        // Remove this ship and insert the two halves
         insertObject(carrierFrontFragment, [this.xPos + 30, this.yPos], 0, [80,20], 0.5, true)
         insertObject(carrierBackFragment, [this.xPos - 95, this.yPos], 0, [-50,50], -0.5, true)
 
         itemsToDraw.splice(itemsToDraw.indexOf(this), 1)
+
+        // Maybe you won, who knows?
+        if (--enemyCarriersRemaining < 1) player.youWon()
       }
     }
   }
@@ -941,6 +946,12 @@ function Player() {
     this.ignoreConversion = false
   }
 
+  this.youWon = function() {
+    // We won! Stop the game and show a message or something.
+    this.collide('who cares')
+    this._deathText = "You won, you badass"
+  }
+
   this.collide = function(type) {
     // We're dead!
     // Uncomment the next lines to turn off game music and play our death tone
@@ -1167,10 +1178,12 @@ function main(initCounts) {
   itemsToDraw = []
 
   // Set up our capital ships
+  enemyCarriersRemaining = 0
   for (var i = 0; i < initCounts.carriers; i++) {
     // Insert our carrier, and if it's within the dreadnought's search radius, move out
     var carrier = insertObject(enemyCarrier, [(Math.random() - 0.5) * X_BOUNDRY * 2, (Math.random() - 0.5) * Y_BOUNDRY *2], 0, [0,0], 0)
     while (Math.sqrt(Math.pow(carrier.xPos, 2) + Math.pow(carrier.yPos)) < 1000) carrier.yPos += 100
+    enemyCarriersRemaining++
   }
 
   dreadnought = insertObject(friendlyDreadnought, [0,0], 0, [0,0], 0)
